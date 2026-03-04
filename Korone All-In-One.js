@@ -3816,7 +3816,7 @@
     // #17 — Trade Notifier
     // ============================================================
     (function () {
-        if (!extEnabled(17)) return;
+        if (!extEnabled(17) && !extEnabled(18)) return;
 
     const BASE = 'https://www.pekora.zip';
     const EP_INBOUND = BASE + '/apisite/trades/v1/trades/inbound';
@@ -5425,57 +5425,40 @@
 
     function injectSidebar() {
         if (document.getElementById('coop-sb') && document.getElementById('mass-sb')) return;
-        const upgradeBtn = document.querySelector('a[href*="BuildersClub"]');
-        if (!upgradeBtn) return;
-        const card = upgradeBtn.closest('div[class*="card-"]');
-        if (!card) return;
-        const existingLink = card.querySelector('a[href="/home"][class*="link-"]');
-        if (!existingLink) return;
-        const existingWrapper = existingLink.querySelector('div[class*="wrapper-"]');
-        const existingEntry = existingLink.querySelector('p[class*="linkEntry-"]');
-        const existingName = existingLink.querySelector('span[class*="name-"]');
 
-        // Trade Notifier sidebar link — only if ext 17 enabled
-        if (extEnabled(17) && !document.getElementById('coop-sb')) {
-            const link = document.createElement('a');
-            link.id = 'coop-sb'; link.href = 'javascript:void(0)';
-            if (existingLink) link.className = existingLink.className;
-            link.style.cssText = 'color:inherit';
-            const div = document.createElement('div');
-            if (existingWrapper) div.className = existingWrapper.className.split(' ')[0];
-            const p = document.createElement('p');
-            if (existingEntry) p.className = existingEntry.className.split(' ')[0];
-            const icon = document.createElement('span');
-            icon.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px';
-            icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
-            const name = document.createElement('span');
-            if (existingName) name.className = existingName.className.split(' ')[0];
-            name.textContent = ' Trade Notifier';
-            p.appendChild(icon); p.appendChild(name); div.appendChild(p); link.appendChild(div);
-            link.addEventListener('click', e => { e.preventDefault(); togglePanel(); });
-            upgradeBtn.parentNode.insertBefore(link, upgradeBtn);
+        // Same approach as feature #12: find sidebar by card, clone the Home button
+        const sidebar = document.querySelector('div[class*="card"]');
+        if (!sidebar) return;
+        const homeBtn = [...sidebar.querySelectorAll('a')].find(a => a.textContent.trim() === 'Home');
+        if (!homeBtn) return;
+        const upgradeBtn = [...sidebar.querySelectorAll('a')].find(a => a.textContent.includes('Upgrade'));
+
+        function makeSidebarBtn(id, label, iconSvg, clickHandler) {
+            if (document.getElementById(id)) return;
+            const btn = homeBtn.cloneNode(true);
+            btn.id = id;
+            btn.href = 'javascript:void(0)';
+            btn.removeAttribute('data-active');
+            const existingIcon = btn.querySelector('svg, span[class*="icon"]');
+            if (existingIcon) {
+                const iconWrap = document.createElement('span');
+                iconWrap.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-right:4px;vertical-align:middle;flex-shrink:0;opacity:0.85';
+                iconWrap.innerHTML = iconSvg;
+                existingIcon.replaceWith(iconWrap);
+            }
+            const textEl = [...btn.querySelectorAll('*')].find(el => el.children.length === 0 && el.textContent.trim() !== '');
+            if (textEl) textEl.textContent = label;
+            btn.addEventListener('click', e => { e.preventDefault(); clickHandler(); });
+            if (upgradeBtn) sidebar.insertBefore(btn, upgradeBtn); else sidebar.appendChild(btn);
         }
 
-        // Mass Trade Sender sidebar link — only if ext 18 enabled
-        if (extEnabled(18) && !document.getElementById('mass-sb')) {
-            const link2 = document.createElement('a');
-            link2.id = 'mass-sb'; link2.href = 'javascript:void(0)';
-            if (existingLink) link2.className = existingLink.className;
-            link2.style.cssText = 'color:inherit';
-            const div2 = document.createElement('div');
-            if (existingWrapper) div2.className = existingWrapper.className.split(' ')[0];
-            const p2 = document.createElement('p');
-            if (existingEntry) p2.className = existingEntry.className.split(' ')[0];
-            const icon2 = document.createElement('span');
-            icon2.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px';
-            icon2.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>';
-            const name2 = document.createElement('span');
-            if (existingName) name2.className = existingName.className.split(' ')[0];
-            name2.textContent = ' Mass Trade Sender';
-            p2.appendChild(icon2); p2.appendChild(name2); div2.appendChild(p2); link2.appendChild(div2);
-            link2.addEventListener('click', e => { e.preventDefault(); showMassTradePanel(); });
-            upgradeBtn.parentNode.insertBefore(link2, upgradeBtn);
-        }
+        if (extEnabled(17)) makeSidebarBtn('coop-sb', 'Trade Notifier',
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>',
+            () => togglePanel());
+
+        if (extEnabled(18)) makeSidebarBtn('mass-sb', 'Mass Trade Sender',
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
+            () => showMassTradePanel());
     }
 
     function toggleRow(id, label, key, desc) {
@@ -7160,6 +7143,12 @@
         }
 
         function update() {
+            // Guard: UI elements only exist on /Trade/ pages
+            const elYou  = document.getElementById('calc-you');
+            const elThem = document.getElementById('calc-them');
+            const elDiff = document.getElementById('calc-diff');
+            if (!elYou || !elThem || !elDiff) return;
+
             const headers = Array.from(document.querySelectorAll('div, span, h1, h2, h3, h4'))
                                  .filter(el => el.innerText === "Your Offer" || el.innerText === "Your Request");
 
@@ -7201,11 +7190,10 @@
                 }
             }
 
-            document.getElementById('calc-you').innerText = yourTotal.toLocaleString();
-            document.getElementById('calc-them').innerText = theirTotal.toLocaleString();
+            elYou.innerText  = yourTotal.toLocaleString();
+            elThem.innerText = theirTotal.toLocaleString();
 
             const diff = theirTotal - yourTotal;
-            const elDiff = document.getElementById('calc-diff');
 
             if (yourTotal === 0 && theirTotal === 0) {
                 elDiff.innerText = "Waiting for items...";
