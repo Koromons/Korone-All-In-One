@@ -1105,7 +1105,7 @@
 
         function openModal(trade) {
             document.querySelector('.tm-modal-bg')?.remove();
-            const isInbound=(trade.tradeType||'').toLowerCase()==='inbound'||(trade.status||'').toLowerCase()==='open';
+            const tradeStatus=(trade.status||'').toLowerCase(); const tradeType=(trade.tradeType||'').toLowerCase(); const isInbound=tradeType==='inbound'||tradeStatus==='open'||tradeStatus==='countered';
             const bg=document.createElement('div'); bg.className='tm-modal-bg';
             const modal=document.createElement('div'); modal.className='tm-modal';
             const titleEl=document.createElement('div'); titleEl.className='tm-modal-title'; titleEl.textContent='Trade Request'; modal.appendChild(titleEl);
@@ -3992,7 +3992,20 @@
     }
     async function fetchInbound() {
         const all = []; let cursor = '';
+        // Fetch standard inbound trades
         while (true) { const j = await apiGet(EP_INBOUND + '?cursor=' + encodeURIComponent(cursor), true); if (Array.isArray(j.data)) all.push(...j.data); if (j.nextPageCursor) cursor = j.nextPageCursor; else break; }
+        // Also fetch countered trades (they come back as inbound with status Countered,
+        // but some API versions return them under outbound — merge both to be safe)
+        try {
+            let c2 = '';
+            while (true) {
+                const j2 = await apiGet(BASE + '/apisite/trades/v1/trades/inbound?tradeStatusType=Countered&cursor=' + encodeURIComponent(c2), true);
+                if (Array.isArray(j2.data)) {
+                    for (const t of j2.data) { if (!all.find(x => x.id === t.id)) all.push(t); }
+                }
+                if (j2.nextPageCursor) c2 = j2.nextPageCursor; else break;
+            }
+        } catch {}
         return all;
     }
     async function fetchCount() { try { return (await apiGet(EP_COUNT, true)).count || 0; } catch { return 0; } }
