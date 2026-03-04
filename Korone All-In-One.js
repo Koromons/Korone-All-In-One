@@ -24,6 +24,8 @@
 // @require      https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js
 // @run-at       document-idle
 // @icon         https://files.catbox.moe/cyolc9.png
+// @updateURL    https://raw.githubusercontent.com/Koromons/Korone-All-In-One/refs/heads/main/Korone%20All-In-One.js
+// @downloadURL  https://raw.githubusercontent.com/Koromons/Korone-All-In-One/refs/heads/main/Korone%20All-In-One.js
 // ==/UserScript==
 
 (function () {
