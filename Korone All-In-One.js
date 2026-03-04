@@ -5404,14 +5404,26 @@
     // Badge, sidebar, panel rendering
     function injectBadge() {
         if (document.getElementById('tn-b')) return;
-        const ul = document.querySelector('ul[class*="linkContainer"]');
+        if (!extEnabled(17)) return;
+        const ul = document.querySelector('ul[class*="linkContainer"]') ||
+                   document.querySelector('ul[class*="nav-"]') ||
+                   document.querySelector('nav ul');
         if (!ul) return;
-        const msg = ul.querySelector('li[class*="messagesContainer"]');
+        const msg = ul.querySelector('li[class*="messagesContainer"]') ||
+                    ul.querySelector('li[class*="message"]');
         const li = document.createElement('li');
         li.id = 'tn-b';
         li.innerHTML = '<a id="tn-ba" href="javascript:void(0)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4L3 8m4-4l4 4M17 8v12l4-4m-4 4l-4-4"/></svg><span id="tn-bc"></span></a>';
         if (msg) msg.after(li); else ul.prepend(li);
         document.getElementById('tn-ba').addEventListener('click', e => { e.preventDefault(); togglePanel(); });
+    }
+    // Standalone badge injector — independent of init() timing
+    if (extEnabled(17)) {
+        (function() {
+            function tryBadge() { injectBadge(); }
+            new MutationObserver(tryBadge).observe(document.body, { childList: true, subtree: true });
+            tryBadge();
+        })();
     }
     function updateBadge(c) {
         injectBadge();
@@ -5422,6 +5434,56 @@
     }
     function roleColor(r) { r=(r||'').toLowerCase(); if(r==='developer') return '#4fc3f7'; if(r==='tester') return '#66bb6a'; if(r==='contributor') return '#e8c44a'; if(r==='designer') return '#ab47bc'; return '#888'; }
     function roleBg(r) { r=(r||'').toLowerCase(); if(r==='developer') return 'rgba(79,195,247,.1)'; if(r==='tester') return 'rgba(102,187,106,.1)'; if(r==='contributor') return 'rgba(232,196,74,.1)'; if(r==='designer') return 'rgba(171,71,188,.1)'; return 'rgba(136,136,136,.1)'; }
+
+    // Standalone sidebar injector — independent of init(), mirrors feature #12's approach
+    (function() {
+        function tryInjectSidebar() {
+            const sidebar = document.querySelector('div[class*="card"]');
+            if (!sidebar) return;
+            const homeBtn = [...sidebar.querySelectorAll('a')].find(a => a.textContent.trim() === 'Home');
+            if (!homeBtn) return;
+
+            if (extEnabled(17) && !document.getElementById('coop-sb')) {
+                const btn = homeBtn.cloneNode(true);
+                btn.id = 'coop-sb';
+                btn.href = 'javascript:void(0)';
+                btn.removeAttribute('data-active');
+                const icon = btn.querySelector('svg, span[class*="icon"]');
+                if (icon) {
+                    const w = document.createElement('span');
+                    w.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-right:4px;vertical-align:middle;flex-shrink:0;opacity:0.85';
+                    w.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
+                    icon.replaceWith(w);
+                }
+                const textEl = [...btn.querySelectorAll('*')].find(el => el.children.length === 0 && el.textContent.trim() !== '');
+                if (textEl) textEl.textContent = 'Trade Notifier';
+                btn.addEventListener('click', e => { e.preventDefault(); togglePanel(); });
+                const upgradeBtn = [...sidebar.querySelectorAll('a')].find(a => a.textContent.includes('Upgrade'));
+                if (upgradeBtn) sidebar.insertBefore(btn, upgradeBtn); else sidebar.appendChild(btn);
+            }
+
+            if (extEnabled(18) && !document.getElementById('mass-sb')) {
+                const btn2 = homeBtn.cloneNode(true);
+                btn2.id = 'mass-sb';
+                btn2.href = 'javascript:void(0)';
+                btn2.removeAttribute('data-active');
+                const icon2 = btn2.querySelector('svg, span[class*="icon"]');
+                if (icon2) {
+                    const w2 = document.createElement('span');
+                    w2.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-right:4px;vertical-align:middle;flex-shrink:0;opacity:0.85';
+                    w2.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>';
+                    icon2.replaceWith(w2);
+                }
+                const textEl2 = [...btn2.querySelectorAll('*')].find(el => el.children.length === 0 && el.textContent.trim() !== '');
+                if (textEl2) textEl2.textContent = 'Mass Trade Sender';
+                btn2.addEventListener('click', e => { e.preventDefault(); showMassTradePanel(); });
+                const upgradeBtn2 = [...sidebar.querySelectorAll('a')].find(a => a.textContent.includes('Upgrade'));
+                if (upgradeBtn2) sidebar.insertBefore(btn2, upgradeBtn2); else sidebar.appendChild(btn2);
+            }
+        }
+        new MutationObserver(tryInjectSidebar).observe(document.body, { childList: true, subtree: true });
+        tryInjectSidebar();
+    })();
 
     function injectSidebar() {
         if (document.getElementById('coop-sb') && document.getElementById('mass-sb')) return;
@@ -6211,12 +6273,8 @@
             }
         }
 
-        // Sidebar links for notifier + mass trader (each guarded inside injectSidebar)
-        injectSidebar();
-
-        // Watch DOM changes (for SPA navigation)
+        // Watch DOM changes (for SPA navigation) — sidebar injection handled independently below
         new MutationObserver(() => {
-            injectSidebar();
             if (extEnabled(17)) injectBadge();
         }).observe(document.body, { childList: true, subtree: true });
     }
@@ -6848,37 +6906,35 @@
         const partnerId = params.get('TradePartnerID');
 
         if (!partnerId) {
-                        return;
+            return;
         }
 
-        // Use Pekora's inventory API
-        const EP_INVENTORY = BASE + '/apisite/inventory/v1/users/{uid}/assets/collectibles';
+        const INV_EP = BASE + '/apisite/inventory/v1/users/{uid}/assets/collectibles';
 
-        // Load my inventory
+        // Load my inventory — use apiGet (GM_xmlhttpRequest) so CSRF + credentials work correctly
         try {
             const myUserId = await getMyUserId();
             let myItems = [];
             let cursor = '';
             while (true) {
-                const url = EP_INVENTORY.replace('{uid}', myUserId) + '?limit=100' + (cursor ? '&cursor=' + cursor : '');
-                const resp = await fetch(url, { credentials: 'include' });
-                const data = await resp.json();
+                const url = INV_EP.replace('{uid}', myUserId) + '?limit=100' + (cursor ? '&cursor=' + cursor : '');
+                const data = await apiGet(url, true);
                 if (data.data) myItems.push(...data.data);
                 if (data.nextPageCursor) cursor = data.nextPageCursor;
                 else break;
             }
-                        renderInventory('my-inv', myItems, 'my');
+            renderInventory('my-inv', myItems, 'my');
         } catch (err) {
-                    }
+            console.error('[Korone] Failed to load my inventory:', err);
+        }
 
-        // Load their inventory
+        // Load their inventory — use apiGet for same reason
         try {
             let theirItems = [];
             let cursor = '';
             while (true) {
-                const url = EP_INVENTORY.replace('{uid}', partnerId) + '?limit=100' + (cursor ? '&cursor=' + cursor : '');
-                const resp = await fetch(url, { credentials: 'include' });
-                const data = await resp.json();
+                const url = INV_EP.replace('{uid}', partnerId) + '?limit=100' + (cursor ? '&cursor=' + cursor : '');
+                const data = await apiGet(url, true);
                 if (data.data) theirItems.push(...data.data);
                 if (data.nextPageCursor) cursor = data.nextPageCursor;
                 else break;
