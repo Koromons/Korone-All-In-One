@@ -1,4 +1,5 @@
 # Korone-All-In-One
+<a href="https://raw.githubusercontent.com/Koromons/Koromons-All-In-One/refs/heads/main/Koromons-All-In-One.js?.user.js">Install to ViolentMonkey</a>
 
 -----
 Faster User Search - Enhanced search with real-time results
