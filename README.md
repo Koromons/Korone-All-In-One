@@ -1,4 +1,6 @@
 # Korone-All-In-One
+
+-----
 Faster User Search - Enhanced search with real-time results
 Better My Friends - Advanced friend list management with bulk actions
 Old Trades Checker - Check Old Trades
@@ -19,5 +21,5 @@ Trade Notifier - Real-time trade notifications
 Mass Trade Sender - Bulk trading
 Import from Roblox - Cross-platform asset transfer
 
-
-![showcase](https://r2.e-z.host/eb8bb5c6-efa5-4764-8438-f6bce0e4292c/wz80x9nd.gif)
+-----
+<img src="https://r2.e-z.host/eb8bb5c6-efa5-4764-8438-f6bce0e4292c/wz80x9nd.gif" width="600" alt="Showcase">
