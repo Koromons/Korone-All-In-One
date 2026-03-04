@@ -3,7 +3,7 @@
 // @namespace    https://tampermonkey.net/
 // @version      1.0
 // @description  Combines: Faster User Search, Better My Friends, Old Trades Checker, Enhanced Place Settings, Asset Downloader, Avatar Editor Tweaks, Rolify, Old Collectibles Page, Better Details, Better Profile, API Purchase, Sidebar Buttons+, Trade Notifier, Mass Trade Sender
-// @author       cooper, dior, pythonplugin, r7kano, x, LMoD, Rolu, arz
+// @author       cooper, dior, pythonplugin, r7kano, x, arz
 // @match        *://*.pekora.zip/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
@@ -1211,8 +1211,8 @@
                     if(robuxAmt){const robuxRow=document.createElement('div');robuxRow.style.cssText='display:flex;justify-content:space-between;align-items:center;margin:-10px 0 16px;padding:0 0 0 0';const robuxLbl=document.createElement('span');robuxLbl.style.cssText='font-size:12px;color:#00e87e;font-weight:700';robuxLbl.textContent='Robux Offered:';const robuxRight=document.createElement('div');robuxRight.style.cssText='display:flex;align-items:center;gap:5px;font-size:13px;font-weight:800;color:#00e87e';const rIcon=document.createElement('img');rIcon.src=(TM_IMG_ROBUX||'https://koromons.xyz/svg/robux.svg');rIcon.style.cssText='width:14px;height:14px;object-fit:contain;flex-shrink:0';const rNum=document.createElement('span');rNum.style.color='#00e87e';rNum.textContent=robuxAmt.toLocaleString();robuxRight.appendChild(rIcon);robuxRight.appendChild(rNum);robuxRow.appendChild(robuxLbl);robuxRow.appendChild(robuxRight);sec.appendChild(robuxRow);}
                     return sec;
                 }
-                const giveAssets=isInbound?theirAssets:myAssets, giveKol=isInbound?theirVal:myVal, giveRap=isInbound?theirRap:myRap, giveRobux=isInbound?theirRobux:myRobux;
-                const recvAssets=isInbound?myAssets:theirAssets, recvKol=isInbound?myVal:theirVal, recvRap=isInbound?myRap:theirRap, recvRobux=isInbound?myRobux:theirRobux;
+                const giveAssets=myAssets, giveKol=myVal, giveRap=myRap, giveRobux=myRobux;
+                const recvAssets=theirAssets, recvKol=theirVal, recvRap=theirRap, recvRobux=theirRobux;
 
                 content.innerHTML='';
                 content.appendChild(buildSection('Items you will give',giveAssets,giveKol,giveRap,giveRobux));
