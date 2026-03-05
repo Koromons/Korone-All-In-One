@@ -3,7 +3,7 @@
 // @namespace    https://tampermonkey.net/
 // @version      1.0
 // @description  Combines: Faster User Search, Better My Friends, Old Trades Checker, Enhanced Place Settings, Asset Downloader, Avatar Editor Tweaks, Rolify, Old Collectibles Page, Better Details, Better Profile, API Purchase, Sidebar Buttons+, Trade Notifier, Mass Trade Sender
-// @author       cooper, dior, pythonplugin, r7kano, x, arz
+// @author       cooper, dior, pythonplugin, r7kano, x, rolue, arz
 // @match        *://*.pekora.zip/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
