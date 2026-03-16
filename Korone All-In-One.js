@@ -3845,7 +3845,8 @@
     const defaultSettings = {
         sound: true, desktop: true, toast: true,
         pollInterval: 3000, toastDuration: 10000, toastHoverDelay: 3000,
-        spamProtection: true, spamThreshold: 3, spamTimeWindow: 300000, compactMode: false
+        spamProtection: true, spamThreshold: 3, spamTimeWindow: 300000, compactMode: false,
+        autoDeclineBlacklist: false, autoDeclineBlocked: false
     };
 
     function loadSettings() { try { const r = localStorage.getItem(SETTINGS_KEY); if (r) return Object.assign({}, defaultSettings, JSON.parse(r)); } catch {} return Object.assign({}, defaultSettings); }
@@ -5703,9 +5704,11 @@
             '<div class="rol-range-row"><div class="rol-range-top"><span class="rol-range-label">Spam threshold (trades)</span><span class="rol-range-val" id="rol-spam-threshold-val">' + settings.spamThreshold + '</span></div><input type="range" class="rol-range" id="rol-spam-threshold" min="2" max="10" step="1" value="' + settings.spamThreshold + '"></div>' +
             '<div class="rol-range-row"><div class="rol-range-top"><span class="rol-range-label">Time window</span><span class="rol-range-val" id="rol-spam-window-val">' + (settings.spamTimeWindow/60000) + 'm</span></div><input type="range" class="rol-range" id="rol-spam-window" min="60000" max="600000" step="60000" value="' + settings.spamTimeWindow + '"></div></div>' +
             '<div class="rol-section"><div class="rol-section-title">Blacklist</div>' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#2b2d2f;border-radius:6px;gap:10px">' +
+            toggleRow('rol-auto-decline-blacklist', 'Auto-decline blacklisted items', 'autoDeclineBlacklist', 'Automatically decline incoming trades that contain any item on your blacklist.') +
+            toggleRow('rol-auto-decline-blocked', 'Auto-decline blocked users', 'autoDeclineBlocked', 'Automatically decline incoming trades from users on your blocked list.') +
+            '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#2b2d2f;border-radius:6px;gap:10px;margin-top:6px">' +
                 '<div style="display:flex;flex-direction:column;gap:4px;flex:1">' +
-                    '<span style="font-size:12px;color:#fff;font-weight:700">Auto-decline blacklisted items</span>' +
+                    '<span style="font-size:12px;color:#fff;font-weight:700">Manage blacklisted items</span>' +
                     '<div style="display:flex;align-items:center;gap:8px">' +
                         '<span style="font-size:10px;color:#b8b8b8"><span id="rol-bl-count">0</span> item(s) currently blacklisted</span>' +
                         '<div id="rol-bl-preview" style="display:flex;gap:4px"></div>' +
@@ -5727,6 +5730,8 @@
         p.querySelector('#rol-toast').addEventListener('change', function() { setSetting('toast', this.checked); });
         p.querySelector('#rol-spam').addEventListener('change', function() { setSetting('spamProtection', this.checked); });
         p.querySelector('#rol-compact').addEventListener('change', function() { setSetting('compactMode', this.checked); });
+        p.querySelector('#rol-auto-decline-blacklist').addEventListener('change', function() { setSetting('autoDeclineBlacklist', this.checked); });
+        p.querySelector('#rol-auto-decline-blocked').addEventListener('change', function() { setSetting('autoDeclineBlocked', this.checked); });
         p.querySelector('#rol-spam-threshold').addEventListener('input', function() { const v=parseInt(this.value); document.getElementById('rol-spam-threshold-val').textContent=v; });
         p.querySelector('#rol-spam-threshold').addEventListener('change', function() { setSetting('spamThreshold', parseInt(this.value)); });
         p.querySelector('#rol-spam-window').addEventListener('input', function() { const v=parseInt(this.value); document.getElementById('rol-spam-window-val').textContent=(v/60000)+'m'; });
@@ -6225,16 +6230,20 @@
                 }
             }
             // Auto-decline blocked
-            for (const t of allTrades) {
-                if (isBlocked(t.user.id) && !seen.has(t.id)) { try { await apiPost(EP_DETAIL + '/' + t.id + '/decline', {}); } catch {} seen.add(t.id); }
+            if (settings.autoDeclineBlocked) {
+                for (const t of allTrades) {
+                    if (isBlocked(t.user.id) && !seen.has(t.id)) { try { await apiPost(EP_DETAIL + '/' + t.id + '/decline', {}); } catch {} seen.add(t.id); }
+                }
             }
             // Auto-decline blacklisted items
-            for (const t of allTrades) {
-                if (!seen.has(t.id) && !isBlocked(t.user.id)) {
-                    const det = panelDetails[t.id] || await fetchDetail(t.id).catch(() => null);
-                    if (det && tradeHasBlacklistedItem(det)) {
-                        try { await apiPost(EP_DETAIL + '/' + t.id + '/decline', {}); } catch {}
-                        seen.add(t.id);
+            if (settings.autoDeclineBlacklist) {
+                for (const t of allTrades) {
+                    if (!seen.has(t.id) && !isBlocked(t.user.id)) {
+                        const det = panelDetails[t.id] || await fetchDetail(t.id).catch(() => null);
+                        if (det && tradeHasBlacklistedItem(det)) {
+                            try { await apiPost(EP_DETAIL + '/' + t.id + '/decline', {}); } catch {}
+                            seen.add(t.id);
+                        }
                     }
                 }
             }
