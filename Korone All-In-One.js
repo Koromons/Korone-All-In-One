@@ -56,6 +56,8 @@
         18: 'Mass Trade Sender',
         19: 'Import from Roblox',
         21: 'Trade Calculator',
+        22: '2018 Users Search',
+        23: 'Trade+',
     };
 
     function extEnabled(n) {
@@ -83,13 +85,13 @@
                 id: 'trading',
                 label: 'Trading',
                 color: '#4f8ef7',
-                exts: [3, 17, 18, 21],
+                exts: [3, 17, 18, 21, 23],
             },
             {
                 id: 'social',
                 label: 'Social',
                 color: '#52c97a',
-                exts: [1, 2, 7, 16],
+                exts: [1, 2, 7, 16, 22],
             },
             {
                 id: 'catalog',
@@ -3366,448 +3368,458 @@
 
     // ============================================================
     // #16 — Banned Profile Overlay
-    // When visiting /users/[id]/profile and that user is banned,
-    // the site returns a 404. This detects it, fetches all data
-    // using the exact same API endpoints the site uses (from console
-    // logs), and builds a full profile page replacing the 404.
+    // View banned/deleted user profiles instead of getting 404.
+    // Originally written by cooper (coollarper45) as a standalone
+    // userscript — integrated here with full credit to the author.
+    // https://www.pekora.zip/users/51543/profile
     // ============================================================
     (function () {
         if (!extEnabled(16)) return;
         if (!/^\/users\/\d+\/profile/.test(location.pathname)) return;
 
-        const B = 'https://www.pekora.zip';
+        var BASE = 'https://www.pekora.zip';
+        function api(path) { return fetch(BASE + path, { credentials: 'include' }).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; }); }
+        function getUserIdFromURL() { var m = location.pathname.match(/^\/users\/(\d+)\/profile/); return m ? m[1] : null; }
+        function isBannedPage() {
+            try { var nd = JSON.parse(document.getElementById('__NEXT_DATA__').textContent); var pp = nd && nd.props && nd.props.pageProps; if (pp && (pp.statusCode === 404 || (pp.username && pp.username.includes('Account Deleted')) || !pp.username)) return true; } catch (e) {}
+            if (document.querySelector('img[alt="404"]')) return true; return false;
+        }
+        function fmt(n) { if (n == null) return '?'; if (n >= 1e6) return Math.floor(n/1e6)+'M+'; if (n >= 1e3) return Math.floor(n/1e3)+'K+'; return String(n); }
+        function fmtDate(iso) { if (!iso || iso.startsWith('0001')) return 'Unknown'; try { return new Date(iso).toLocaleDateString(); } catch (e) { return iso; } }
+        function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+        function resolveImg(url) { return !url ? BASE+'/img/placeholder.png' : url.startsWith('http') ? url : BASE+url; }
+        function slug(n) { return (n||'Item').replace(/[^a-zA-Z0-9]/g,'-').replace(/-+/g,'-'); }
 
-        function fmt16(n) {
-            n = Number(n) || 0;
-            if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M+';
-            if (n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/,'') + 'K+';
-            return n.toLocaleString();
+        function injectCSS() {
+            if (document.getElementById('buv-styles')) return;
+            var s = document.createElement('style'); s.id = 'buv-styles';
+            s.textContent = '.buv-card{border:0;margin:0 0 18px;background:var(--white-color);box-shadow:none;border-radius:0}.buv-profileHeader{margin-bottom:0}.buv-profileHeader h1,.buv-profileHeader h2,.buv-profileHeader h3,.buv-profileHeader h4,.buv-profileHeader h5{padding:5px 0;line-height:1em}.buv-cardBody{padding:15px!important}.buv-thumbContainer{float:left;padding:0}@media(max-width:767px){.buv-thumbContainer{display:flex;align-items:center;justify-content:center}}.buv-userInfo{width:calc(100% - 128px - 12px)!important}@media(max-width:767px){.buv-userInfo{width:100%!important;display:flex;flex-direction:column}}.buv-headshot{width:128px;border:1px solid #b8b8b8;height:128px;padding:0;position:relative;margin-right:12px;border-radius:50%;vertical-align:bottom;background-color:#d1d1d1}@media(max-width:767px){.buv-headshot{width:100px;height:100px;margin:0}}.buv-headshot img{border-radius:50%;vertical-align:bottom;width:100%;height:100%}.buv-activity{float:right;right:5%;bottom:4%;margin:0;position:absolute}.buv-username{margin:0;font-size:32px;font-weight:800}@media(max-width:767px){.buv-username{display:flex;position:relative;justify-content:center}}.buv-status{margin:0;font-size:16px;font-weight:400;line-height:1.4em}.buv-statusMargin{margin-bottom:8px}.buv-statusHidden{}@media(max-width:767px){.buv-statusHidden{display:none}}.buv-altIcon{bottom:2.5px;position:relative}.buv-relContainer{justify-content:space-between}@media(max-width:767px){.buv-relContainer{margin-top:6px}}.buv-relList{float:left;width:55%;height:54px;margin:0;padding:0;list-style:none}@media(max-width:767px){.buv-relList{width:100%}}.buv-relList::after{content:"";display:table;clear:both}.buv-statHeader{color:var(--text-color-secondary);margin:0;font-size:18px;text-align:center;font-weight:500;line-height:1.4em}@media(max-width:767px){.buv-statHeader{font-size:16px}}.buv-statLink{color:var(--primary-color)!important;text-decoration:none!important}.buv-statLink:hover{text-decoration:underline!important}.buv-statText{color:var(--primary-color)!important;margin:0;padding:5px 0;font-size:20px;font-weight:400;line-height:1em;text-decoration:none!important}@media(max-width:767px){.buv-statText{padding:0}}.buv-tabBar{color:var(--text-color-primary);width:100%;border:0;display:flex;padding:0;text-align:center;flex-direction:row;background-color:var(--white-color)}.buv-tab{flex:1;float:left;display:inline-block;margin-bottom:-1px}.buv-tabLabel{border:0;margin:0;padding:12px 2%;font-size:16px;font-weight:400;line-height:1em;background-color:var(--white-color)}.buv-tabActive{box-shadow:inset 0 -4px 0 0 var(--primary-color)!important;cursor:default}.buv-tabInactive{box-shadow:none!important;cursor:pointer}.buv-tabInactive:hover{background:var(--white-color-hover,#f5f5f5)}.buv-tabText{margin:0;display:inline-block;font-weight:500;line-height:1em}.buv-selected{margin-top:6px;margin-bottom:6px}.buv-header{padding:0 0 5px;font-size:20px;font-weight:700;line-height:1.4em;margin-bottom:0}.buv-aboutBody{padding:15px!important;font-size:16px;font-weight:300;white-space:break-spaces;margin-bottom:15px}.buv-report{padding-bottom:40px}.buv-reportWrap{float:right}.buv-reportText{font-size:10px;margin-top:15px;margin-bottom:0}.buv-reportText:hover>a{color:#F00}.buv-reportText:hover>a>span{background-image:url("/img/abuse.png")}.buv-reportLink{color:#F99;padding-left:2px;text-decoration:none}.buv-reportIcon{float:left;width:14px;height:13px;display:block}.buv-pastBody{padding:10px 20px;font-size:12px;font-weight:300;margin-bottom:0}.buv-pastLabel{color:var(--text-color-secondary);cursor:pointer;font-size:12px;font-weight:500;user-select:none}.buv-pastIcon{width:20px;height:20px;opacity:.5;display:inline-block;vertical-align:middle}.buv-pastTooltip{width:150px;display:flex;opacity:1;padding:4px 8px;z-index:99;overflow:visible;position:absolute;background:rgba(0,0,0,0.65);flex-direction:column}.buv-pastName{color:#fff;display:flex;margin-bottom:0}.buv-socialLink{float:left;width:32px;height:32px;margin-left:6px}.buv-avatarWrap{margin:0 auto;display:block;max-width:300px}.buv-avatarCard{border:0;position:relative;min-height:300px;border-radius:0;background-color:var(--white-color)}.buv-avatarCard img{width:100%;height:auto}.buv-wearingCard{border:0!important;height:100%;background:#3b7599;border-radius:0}.buv-restrictions{left:-3px;bottom:-3px;overflow:hidden;position:absolute;border-bottom-left-radius:10.5px}.buv-wearingImg{width:100%;height:auto}.buv-friendRow{display:flex;padding:15px!important;flex-flow:row;max-height:150px;overflow-x:auto;overflow-y:hidden;align-items:center;margin-bottom:0;justify-content:flex-start;list-style:none}.buv-friendItem{float:left;width:11.11111%;height:120px;position:relative;min-width:100px;list-style:none}.buv-friendAvatarWrap{width:90px;margin:auto;position:relative;font-size:16px;font-weight:400;line-height:1.4em}.buv-friendLink{margin:0 auto;position:relative;text-decoration:none}.buv-friendAvatar{width:100%;border:0;height:100%;display:block;box-shadow:0 1px 4px 0 rgba(25,25,25,0.3);text-align:center;transition:box-shadow 200ms ease;border-radius:50%;background-color:#d1d1d1}.buv-friendAvatar:hover{box-shadow:0 1px 6px 0 rgba(25,25,25,0.75)}.buv-friendAvatar img{border-radius:50%;vertical-align:bottom;background-color:#d1d1d1;width:100%}.buv-friendName{margin:3px 0 0;display:block;overflow:hidden;font-size:12px;text-align:center;font-weight:500;line-height:1.867em;white-space:nowrap;text-overflow:ellipsis;text-decoration:none}.buv-seeAllWrap{float:right;width:100px;height:100%;display:flex;margin-top:0;align-items:flex-end;justify-content:flex-end}.buv-seeAll{color:var(--primary-color)!important;padding:4px;font-size:16px;text-align:center;font-weight:500;text-decoration:none!important}.buv-seeAll:hover{text-decoration:underline!important}.buv-itemWrap{border:1px solid var(--text-color-quinary,#ccc);position:relative;border-radius:0}.buv-itemImg{width:100%;margin:0 auto;display:block;padding:0}.buv-itemLabel{overflow:hidden;font-size:16px;font-weight:500;white-space:nowrap;text-overflow:ellipsis}.buv-itemLimitWrap{left:-2px;width:100%;bottom:-2px;overflow:hidden;position:absolute}.buv-groupHeaders{display:flex;flex-direction:row}.buv-iconCard{height:100%;background:#0074bd;align-content:center;border-radius:0;min-height:240px;position:relative;overflow:hidden}.buv-iconImg{width:240px;height:240px;margin:0 auto;display:block;border-radius:12px}.buv-cursor{width:50px;cursor:pointer;height:50px;position:absolute;background:rgba(0,0,0,0.5);border-radius:100%;z-index:10;top:50%;transform:translateY(-50%);opacity:0;transition:opacity 0.15s}.buv-groupSlidePair:hover .buv-cursor{opacity:1}.buv-cursor:hover{background:rgba(0,0,0,0.75)}.buv-cursorBack{left:20px;border:2px solid white}.buv-cursorFwd{right:20px;border:2px solid white}.buv-cursorChevron{color:white;font-size:40px;user-select:none;display:flex;align-items:center;justify-content:center;width:100%;height:100%;line-height:1}.buv-groupCard{border:0;height:300px;padding:20px 30px;border-radius:0;background-color:var(--white-color);display:flex;flex-direction:column}.buv-groupName{margin:0;padding:5px 0;font-size:32px;font-weight:800;border-bottom:1px solid var(--white-color)}.buv-groupDesc{height:100px;margin:0;hyphens:none;overflow:hidden;font-size:16px;word-wrap:break-word;border-top:1px solid var(--text-color-secondary);font-weight:400;line-height:1.5em;white-space:pre-wrap;text-overflow:ellipsis}.buv-groupStatH{color:var(--text-color-secondary);font-size:16px;font-weight:500;line-height:1.4em;margin-bottom:0}.buv-groupStatV{font-size:16px;font-weight:500;margin-bottom:0}.buv-toggleBtn{color:white;text-align:center;text-decoration:none;cursor:pointer}.buv-btnWrap{color:white;width:100%;padding:5px 10px;background:var(--primary-color);text-align:center;border-radius:4px}.buv-btnWrap:hover{background:#32B5FF;box-shadow:0 1px 3px rgb(150 150 150 / 74%)}.buv-btnInUse{padding-top:0;padding-bottom:0}.buv-btnNotInUse{border:1px solid var(--text-color-quinary);background:white!important;padding-top:0;padding-bottom:0}.buv-groupGrid{display:flex;flex-wrap:wrap}.buv-groupGridItem{padding:0}.buv-groupGridItem .card{background-color:var(--white-color)}.buv-groupGridImg{width:100%;display:block}.buv-groupGridName{font-size:14px;font-weight:600;margin-bottom:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.buv-groupGridCount{font-size:12px;color:var(--text-color-secondary);margin-bottom:0}.buv-gamesContainer{display:flex;gap:10px;margin:0;padding:0 0 50px;list-style:none;overflow-x:auto;overflow-y:visible}.buv-gameItem{flex-shrink:0;width:150px;list-style:none}@media(max-width:767px){.buv-gameItem{width:120px}}.buv-creationsContainer{display:flex;flex-wrap:wrap;gap:10px;margin:0;padding:0;list-style:none}.buv-creationsContainer .buv-gameItem{flex-shrink:0;width:calc(16.666% - 9px);min-width:120px}@media(max-width:991px){.buv-creationsContainer .buv-gameItem{width:calc(25% - 8px)}}@media(max-width:767px){.buv-creationsContainer .buv-gameItem{width:calc(33.333% - 7px)}}.buv-gameCard{width:100%;margin:0;padding:0;position:relative;font-size:16px;box-shadow:0 1px 4px 0 rgba(25,25,25,0.3);text-align:left;font-weight:300;line-height:1.3em;white-space:normal;border-radius:3px;background-color:var(--white-color)}.buv-gameCard:hover{z-index:999;box-shadow:0 1px 6px 0 rgba(25,25,25,0.75);transition:box-shadow 200ms ease}.buv-gameCard:hover .buv-gameFooter{display:flex}.buv-gameLink{color:inherit;cursor:pointer;display:flex;flex-direction:column;text-decoration:none!important}.buv-gameThumb{width:100%;aspect-ratio:1/1;overflow:hidden;border-top-left-radius:3px;border-top-right-radius:3px}.buv-gameThumb img{width:100%;height:100%;object-fit:cover;border-top-left-radius:3px;border-top-right-radius:3px}.buv-gameTitle{cursor:pointer;margin:3px 0;padding:0 6px;overflow:hidden;margin-top:6px;line-height:1.3em;white-space:nowrap;text-overflow:ellipsis}.buv-gamePlaying{color:var(--text-color-tertiary);width:100%;margin:3px 0;padding:0 6px;font-size:12px;font-weight:400;line-height:1.3em;display:flex;justify-content:space-between}.buv-gameVote{width:100%;margin:3px 0;padding:0 6px}.buv-voteBar{height:20px;position:relative;overflow:visible}.buv-voteBar::before{content:"";display:table}.buv-voteBar::after{content:"";display:table;clear:both}.buv-voteThumbUp{float:left;display:flex!important}.buv-voteContainer{float:left;width:calc(99% - 32px);height:6px;margin:9px auto 0 1%;position:relative}.buv-voteBg{top:0;left:0;width:100%;height:100%;position:absolute;background-color:var(--text-color-secondary)}.buv-votePercent{top:0;left:0;height:100%;position:absolute;background-color:var(--text-color-tertiary)}.buv-voteSeg{top:0;width:2px;height:6px;position:absolute;background-color:var(--white-color)}.buv-voteThumbDown{float:left;display:flex!important;opacity:.6}.buv-voteThumbDown span{background-position:0 -16px}.buv-gameFooter{display:none;position:absolute;bottom:0;left:0;width:100%;transform:translateY(100%);flex-direction:column;background-color:var(--white-color);box-shadow:0 1px 6px 0 rgba(25,25,25,0.75);clip-path:inset(0 -10px -10px -10px);border-bottom-left-radius:3px;border-bottom-right-radius:3px;z-index:1000}.buv-voteCounts{width:89%;cursor:pointer;margin:auto;display:flex;padding:0 2px 5px;justify-content:space-between}.buv-voteCounts div{font-size:12px;font-weight:300;line-height:1.3em}.buv-gameItem.has-votes:hover .buv-voteBg{opacity:.6;background-color:var(--bad-color)}.buv-gameItem.has-votes:hover .buv-votePercent{background-color:#02b757}.buv-gameItem.has-votes:hover .icon-thumbs-up{color:#02b757}.buv-gameItem.has-votes:hover .icon-thumbs-down{color:var(--bad-color)}.buv-upvoteCount{float:right;color:#02b757}.buv-downvoteCount{float:left;color:var(--bad-color);opacity:.6}.buv-gameFooterInner{width:100%;border-top:1px solid var(--background-color);line-height:1.3em;white-space:normal;display:block}.buv-gameCreator{padding:5px 5px 0}.buv-gameCreatorText{color:var(--text-color-secondary);width:100%;display:inline;overflow:hidden;font-size:12px;font-weight:400;line-height:1.3em!important;white-space:nowrap;text-overflow:ellipsis}.buv-gameCreatorText a{color:var(--primary-color);display:inline;text-decoration:none!important}.buv-gameCreatorText a:hover{text-decoration:underline!important}.buv-playerCount{color:var(--text-color-primary);user-select:none;margin-bottom:0}.buv-yearText{color:var(--text-color-primary);font-weight:400;user-select:none;margin-bottom:0}.buv-koroneImgWrap{display:flex;align-items:center;justify-content:center;border:1px solid var(--text-color-secondary);height:142px;overflow:hidden;border-radius:0}.buv-koroneImgWrap span{font-size:48px}.buv-koroneLabel{width:100%;overflow:hidden;font-size:16px;font-weight:500;line-height:1.4em;white-space:nowrap;text-overflow:ellipsis}.buv-statsPad{padding:15px!important}.buv-statsLabel{color:var(--text-color-secondary);overflow:hidden;font-size:16px;text-align:center;font-weight:400;white-space:nowrap;margin-bottom:0}.buv-statsValue{font-size:18px;margin-top:5px;text-align:center;margin-bottom:0!important}.buv-lastOnline{color:var(--text-color-secondary);font-size:12px;text-align:center;margin-top:4px}';
+            document.head.appendChild(s);
         }
 
-        function gm(path) {
-            return new Promise(resolve => {
-                GM_xmlhttpRequest({
-                    method: 'GET',
-                    url: B + path,
-                    headers: { Accept: 'application/json' },
-                    onload(r) { try { resolve(JSON.parse(r.responseText)); } catch(e) { resolve(null); } },
-                    onerror() { resolve(null); }
-                });
+        function buildGameCard(detail, voteMap, iconMap) {
+            var uniId = detail.universeId;
+            var img = resolveImg(iconMap[uniId]);
+            var n = detail.name || 'Game';
+            var y = detail.year || '????';
+            var placeId = detail.universeRootPlaceId || detail.placeId;
+            var pc = detail.playerCount || 0;
+            var builder = detail.builder || '?';
+            var builderId = detail.builderId;
+            var builderType = detail.builderType;
+            var builderLink = builderType === 'Group'
+                ? '/My/Groups.aspx?gid=' + builderId
+                : '/User.aspx?ID=' + builderId;
+            var votes = voteMap[uniId] || {};
+            var up = votes.upVotes != null ? votes.upVotes : 0;
+            var dn = votes.downVotes != null ? votes.downVotes : 0;
+            var total = up + dn;
+            var pct = total > 0 ? Math.round((up / total) * 100) : 0;
+            return '<li class="buv-gameItem' + (total > 0 ? ' has-votes' : '') + '">' +
+'<div class="buv-gameCard">' +
+'<a href="/games/' + placeId + '/' + slug(n) + '" class="buv-gameLink">' +
+'<div class="buv-gameThumb"><img src="' + img + '"></div>' +
+'<div class="buv-gameTitle" title="' + esc(n) + '">' + esc(n) + '</div>' +
+'<div class="buv-gamePlaying"><p class="buv-playerCount">' + pc + ' Playing</p><p class="buv-yearText">' + y + '</p></div>' +
+'<div class="buv-gameVote"><div class="buv-voteBar">' +
+'<div class="buv-voteThumbUp"><span class="icon-thumbs-up"></span></div>' +
+'<div class="buv-voteContainer">' +
+'<div class="buv-voteBg"></div>' +
+'<div class="buv-votePercent" style="width:' + pct + '%"></div>' +
+'<div>' +
+'<div class="buv-voteSeg" style="left:18%"></div>' +
+'<div class="buv-voteSeg" style="left:38%"></div>' +
+'<div class="buv-voteSeg" style="left:58%"></div>' +
+'<div class="buv-voteSeg" style="left:78%"></div>' +
+'</div></div>' +
+'<div class="buv-voteThumbDown"><span class="icon-thumbs-down"></span></div>' +
+'</div></div></a>' +
+'<div class="buv-gameFooter">' +
+'<div class="buv-voteCounts"><div class="buv-upvoteCount">' + up + '</div><div class="buv-downvoteCount">' + dn + '</div></div>' +
+'<div class="buv-gameFooterInner"><div class="buv-gameCreator"><span class="buv-gameCreatorText">By <a href="' + esc(builderLink) + '">' + esc(builder) + '</a></span></div></div>' +
+'</div></div></li>';
+        }
+
+        async function fetchPlaceData(placeIds) {
+            if (!placeIds || !placeIds.length) return { detailMap: {}, voteMap: {}, iconMap: {} };
+            var allDetails = [];
+            for (var c = 0; c < placeIds.length; c += 50) {
+                var chunk = placeIds.slice(c, c + 50);
+                var res = await api('/apisite/games/v1/games/multiget-place-details?placeIds=' + chunk.join(','));
+                if (Array.isArray(res)) allDetails = allDetails.concat(res);
+            }
+            var detailMap = {};
+            var universeIds = [];
+            allDetails.forEach(function(d) {
+                detailMap[d.placeId] = d;
+                if (d.universeId && universeIds.indexOf(d.universeId) === -1) universeIds.push(d.universeId);
             });
+            var voteMap = {};
+            var iconMap = {};
+            for (var uc = 0; uc < universeIds.length; uc += 50) {
+                var uChunk = universeIds.slice(uc, uc + 50);
+                var extras = await Promise.all([
+                    api('/apisite/games/v1/games/votes?universeIds=' + uChunk.join('%2C')),
+                    api('/apisite/thumbnails/v1/games/icons?universeIds=' + uChunk.join('%2C') + '&format=png&size=420x420'),
+                ]);
+                ((extras[0] && extras[0].data) ? extras[0].data : []).forEach(function(v) { voteMap[v.id] = v; });
+                ((extras[1] && extras[1].data) ? extras[1].data : []).forEach(function(d) { iconMap[d.targetId] = d.imageUrl; });
+            }
+            return { detailMap: detailMap, voteMap: voteMap, iconMap: iconMap };
         }
 
-        function gmKoromons(path) {
-            return new Promise(resolve => {
-                GM_xmlhttpRequest({
-                    method: 'GET',
-                    url: 'https://koromons.xyz' + path,
-                    headers: { Accept: 'application/json' },
-                    onload(r) { try { resolve(JSON.parse(r.responseText)); } catch(e) { resolve(null); } },
-                    onerror() { resolve(null); }
-                });
-            });
+        function renderGameCards(placeIds, placeData) {
+            var html = '';
+            for (var i = 0; i < placeIds.length; i++) {
+                var detail = placeData.detailMap[placeIds[i]];
+                if (detail) html += buildGameCard(detail, placeData.voteMap, placeData.iconMap);
+            }
+            return html;
         }
 
-        async function run16() {
-            const m = location.pathname.match(/^\/users\/(\d+)\/profile/);
-            if (!m) return;
-            const uid = m[1];
-
-            // Don't double-inject
-            if (document.getElementById('pk16-ban-banner')) return;
-
-            // 1. Check if banned
-            const user = await gm(`/apisite/users/v1/users/${uid}`);
-            if (!user || !user.isBanned) return;
-
-            // 2. Fetch all data in parallel — using exact endpoints from console logs
-            const [
-                followersRes,
-                followingsRes,
-                friendsRes,
-                groupsRes,
-                gamesRes,
-                thumbRes,
-                koromonsUser,
-                usernameHistory,
-            ] = await Promise.all([
-                gm(`/apisite/friends/v1/users/${uid}/followers/count`),
-                gm(`/apisite/friends/v1/users/${uid}/followings/count`),
-                gm(`/apisite/friends/v1/users/${uid}/friends`),
-                gm(`/apisite/groups/v1/users/${uid}/groups/roles`),
-                gm(`/apisite/games/v2/users/${uid}/games?limit=6&cursor=`),
-                gm(`/apisite/thumbnails/v1/users/avatar-headshot?userIds=${uid}&size=420x420&format=Png&isCircular=false`),
-                gmKoromons(`/api/users/${uid}`),
-                gmKoromons(`/api/pekora/usernamehistory?userid=${uid}`),
+        async function fetchAll(uid) {
+            var results = await Promise.all([
+                api('/apisite/users/v1/users/' + uid),
+                api('/apisite/users/v1/users/' + uid + '/status'),
+                api('/apisite/friends/v1/users/' + uid + '/followers/count'),
+                api('/apisite/friends/v1/users/' + uid + '/followings/count'),
+                api('/apisite/friends/v1/users/' + uid + '/friends'),
+                api('/apisite/badges/v1/users/' + uid + '/badges?limit=6'),
+                api('/apisite/accountinformation/v1/users/' + uid + '/roblox-badges'),
+                api('/apisite/thumbnails/v1/users/avatar?userIds=' + uid + '&size=420x420&format=png'),
+                api('/apisite/thumbnails/v1/users/avatar-headshot?userIds=' + uid + '&size=420x420&format=png'),
+                api('/apisite/avatar/v1/users/' + uid + '/avatar'),
+                api('/users/profile/robloxcollections-json?userId=' + uid),
+                api('/apisite/groups/v1/users/' + uid + '/groups/roles'),
+                api('/users/favorites/list-json?userId=' + uid + '&assetTypeId=9&pageNumber=1&itemsPerPage=6'),
+                api('/apisite/accountinformation/v1/users/' + uid + '/promotion-channels?alwaysReturnUrls=true'),
+                api('/apisite/users/v1/users/' + uid + '/username-history?limit=100&cursor='),
             ]);
+            return {
+                user: results[0], status: results[1], followers: results[2], followings: results[3],
+                friends: results[4], badges: results[5], robloxBadges: results[6], avatar: results[7],
+                headshot: results[8], wearing: results[9], collections: results[10], groups: results[11],
+                favGames: results[12], promoChannels: results[13], usernameHistory: results[14]
+            };
+        }
 
-            // 3. Extract values
-            const displayName   = user.displayName || user.name || 'Unknown';
-            const username      = user.name || displayName;
-            const description   = (user.description || '').replace(/\n+$/, '');
-            const rap           = user.inventoryRap || 0;
-            const joinDate      = user.created ? new Date(user.created).toLocaleDateString() : 'Unknown';
-            const followerCount = followersRes?.count || 0;
-            const followingCount= followingsRes?.count || 0;
-            const friends       = (friendsRes?.data || []).slice(0, 8);
-            const friendCount   = friends.length;
-            const groups        = (groupsRes?.data || []).slice(0, 6);
-            const games         = (gamesRes?.data || []).slice(0, 4);
+        async function fetchThumbs(ids, type) {
+            if (!ids || !ids.length) return {};
+            var j = ids.join('%2C');
+            var p;
+            if (type === 'groups') p = '/apisite/thumbnails/v1/groups/icons?groupIds=' + j + '&size=150x150&format=png';
+            else if (type === 'assets') p = '/apisite/thumbnails/v1/assets?assetIds=' + j + '&format=png&size=150x150';
+            else if (type === 'avatar') p = '/apisite/thumbnails/v1/users/avatar?userIds=' + j + '&size=420x420&format=png';
+            else p = '/apisite/thumbnails/v1/users/avatar-headshot?userIds=' + j + '&size=150x150&format=png';
+            var r = await api(p);
+            var m = {};
+            var data = (r && r.data) ? r.data : [];
+            data.forEach(function(d) { m[d.targetId] = d.imageUrl; });
+            return m;
+        }
 
-            // Koromons extra data
-            const kRap         = koromonsUser?.totalRAP ?? koromonsUser?.currentRap ?? rap;
-            const kValue       = koromonsUser?.totalValue ?? koromonsUser?.currentValue ?? 0;
-            const kItemCount   = koromonsUser?.itemCount ?? 0;
-            const kRank        = koromonsUser?.leaderboardRank ?? null;
-            const kLastUpdated = koromonsUser?.lastUpdated ? new Date(koromonsUser.lastUpdated).toLocaleDateString() : null;
-            const kPastNames   = Array.isArray(usernameHistory)
-                ? usernameHistory
-                : (usernameHistory?.data || usernameHistory?.usernames || []);
+        async function render(uid) {
+            var D = await fetchAll(uid);
+            var user = D.user, status = D.status, followers = D.followers, followings = D.followings;
+            var friends = D.friends, badges = D.badges, robloxBadges = D.robloxBadges;
+            var avatar = D.avatar, headshot = D.headshot, wearing = D.wearing;
+            var collections = D.collections, groups = D.groups, favGames = D.favGames;
+            var promoChannels = D.promoChannels, usernameHistory = D.usernameHistory;
 
-            // Avatar URLs — use the thumbnails API response if available, else thumbs endpoint
-            const thumbData = thumbRes?.data?.[0];
-            const headshotUrl = (thumbData && thumbData.imageUrl && thumbData.state === 'Completed')
-                ? thumbData.imageUrl
-                : `${B}/thumbs/avatar-headshot.ashx?userId=${uid}`;
+            if (!user) {
+                var mainFail = document.querySelector('.main-0-2-29') || document.body;
+                var errEl = mainFail.querySelector('.col-12.h-100');
+                if (errEl) errEl.remove();
+                var cDiv = document.createElement('div');
+                cDiv.className = 'container-0-2-32 container';
+                cDiv.innerHTML = '<div style="padding:40px;text-align:center"><h2>User #' + uid + '</h2><p>Could not retrieve this account.</p></div>';
+                mainFail.appendChild(cDiv);
+                return;
+            }
+            injectCSS();
 
-            // Full body avatar via separate call
-            const bodyThumbRes = await gm(`/apisite/thumbnails/v1/users/avatar?userIds=${uid}&size=250x250&format=Png`);
-            const bodyThumbData = bodyThumbRes?.data?.[0];
-            const bodyUrl = (bodyThumbData && bodyThumbData.imageUrl && bodyThumbData.state === 'Completed')
-                ? bodyThumbData.imageUrl
-                : `${B}/thumbs/avatar-thumbnail.ashx?userId=${uid}&size=250x250`;
+            var un = user.name || 'User_' + uid;
+            var desc = user.description || '';
+            var ban = user.isBanned;
+            var ver = user.hasVerifiedBadge;
+            var jd = fmtDate(user.created);
+            var fl = (friends && friends.data) ? friends.data : [];
+            var fc = fl.length;
+            var foc = (followers && followers.count != null) ? fmt(followers.count) : '?';
+            var fic = (followings && followings.count != null) ? fmt(followings.count) : '?';
+            var us = (status && status.status) ? status.status : '';
+            var rap = (user.inventoryRap != null) ? fmt(user.inventoryRap) : '?';
+            var hu = resolveImg(headshot && headshot.data && headshot.data[0] ? headshot.data[0].imageUrl : null);
+            var au = resolveImg(avatar && avatar.data && avatar.data[0] ? avatar.data[0].imageUrl : null);
+            var pn = (usernameHistory && usernameHistory.data) ? usernameHistory.data : [];
 
-            // Fetch friend avatars in parallel
-            const friendThumbRes = friends.length
-                ? await gm(`/apisite/thumbnails/v1/users/avatar-headshot?userIds=${friends.map(f=>f.id||f.userId).join(',')}&size=100x100&format=Png&isCircular=false`)
-                : null;
-            const friendThumbMap = {};
-            if (friendThumbRes?.data) {
-                friendThumbRes.data.forEach(t => {
-                    if (t.targetId && t.imageUrl && t.state === 'Completed') {
-                        friendThumbMap[t.targetId] = t.imageUrl;
-                    }
+            var ugRaw = await api('/apisite/games/v2/users/' + uid + '/games?limit=50&cursor=');
+            var ugItems = (ugRaw && ugRaw.data) ? ugRaw.data : [];
+            var pvTotal = ugItems.length ? ugItems.reduce(function(sum, g) { return sum + (g.placeVisits || 0); }, 0) : 0;
+            var pv = fmt(pvTotal);
+            var ugPlaceIds = ugItems.map(function(g) { return g.rootPlaceId; }).filter(Boolean);
+            var ugPlaceData = await fetchPlaceData(ugPlaceIds);
+            var ugContent = '';
+            if (ugPlaceIds.length) {
+                var ugCardsHTML = renderGameCards(ugPlaceIds, ugPlaceData);
+                ugContent = ugCardsHTML ? '<div class="buv-creationsContainer">' + ugCardsHTML + '</div>' : '<div class="section-content-off">No games to display.</div>';
+            } else {
+                ugContent = '<div class="section-content-off">No games to display.</div>';
+            }
+
+            var fH = '';
+            if (fc) {
+                var fi = fl.slice(0, 10).map(function(f) { return f.id; });
+                var ft = await fetchThumbs(fi, 'avatar');
+                fH = fl.slice(0, 10).map(function(f) {
+                    var fImg = resolveImg(ft[f.id]);
+                    var fName = f.name || '[ Account Deleted (' + f.id + ') ]';
+                    return '<li class="buv-friendItem"><div class="buv-friendAvatarWrap"><a class="buv-friendLink" href="/users/' + f.id + '/profile"><span class="buv-friendAvatar"><img src="' + fImg + '" alt="' + esc(fName) + '"></span><span class="buv-friendName link2019">' + esc(fName) + '</span></a></div></li>';
+                }).join('');
+            }
+
+            var cH = '';
+            var ci = (collections && collections.CollectionsItems) ? collections.CollectionsItems.slice(0, 6) : [];
+            if (ci.length) {
+                cH = ci.map(function(item) {
+                    var cId = item.Id, cName = item.Name || 'Item';
+                    var cImg = resolveImg(item.Thumbnail ? item.Thumbnail.Url : null);
+                    var cTag = (item.AssetRestrictionIcon && item.AssetRestrictionIcon.CssTag) ? item.AssetRestrictionIcon.CssTag : null;
+                    var cLbl = cTag ? '<div class="buv-itemLimitWrap"><span class="icon-' + cTag + '-label"></span></div>' : '';
+                    return '<div class="col-4 col-lg-2 ml-1 mr-1"><a href="/catalog/' + cId + '/' + slug(cName) + '"><div class="buv-itemWrap"><img class="buv-itemImg" src="' + cImg + '">' + cLbl + '</div><p class="mb-0 link2019 buv-itemLabel">' + esc(cName) + '</p></a></div>';
+                }).join('');
+            }
+
+            var wearAssets = (wearing && wearing.assets) ? wearing.assets.slice(0, 8) : [];
+            var wH = '';
+            if (wearAssets.length) {
+                var wids = wearAssets.map(function(w) { return w.id; });
+                var wt = await fetchThumbs(wids, 'assets');
+                wH = wearAssets.map(function(w) {
+                    var wName = w.name || 'Item';
+                    var wImg = resolveImg(wt[w.id]);
+                    return '<div class="col-3 pt-2 ps-1 pe-1"><div class="card" title="' + esc(wName) + '"><a title="' + esc(wName) + '" href="/catalog/' + w.id + '/' + slug(wName) + '"><img class="buv-wearingImg pt-0" src="' + wImg + '"></a><div class="buv-restrictions"></div></div></div>';
+                }).join('');
+            }
+
+            var gl = (groups && groups.data) ? groups.data.slice(0, 12) : [];
+            var groupSlideshowHTML = '', groupGridHTML = '';
+            if (gl.length) {
+                var gids = gl.map(function(entry) { return entry.group.id; });
+                var gt = await fetchThumbs(gids, 'groups');
+                var hasMultiple = gl.length > 1;
+                var slidesArr = gl.map(function(entry, idx) {
+                    var grp = entry.group, role = entry.role;
+                    var gImg = resolveImg(gt[grp.id]);
+                    var gDesc = grp.description || '';
+                    return '<div class="buv-groupSlidePair" data-idx="' + idx + '" style="display:' + (idx === 0 ? 'flex' : 'none') + ';width:100%;position:relative">' +
+(hasMultiple ? '<div class="buv-cursor buv-cursorBack buv-grp-back"><span class="buv-cursorChevron">&#8249;</span></div>' : '') +
+'<div class="col-12 col-lg-6 pe-lg-0"><div class="buv-iconCard"><a href="/My/Groups.aspx?gid=' + grp.id + '"><img class="buv-iconImg" src="' + gImg + '"></a></div></div>' +
+'<div class="col-12 col-lg-6 ps-lg-0"><div class="card buv-groupCard"><h3 class="buv-groupName">' + esc(grp.name) + '</h3><p class="buv-groupDesc">' + esc(gDesc) + '</p>' +
+'<div class="flex" style="margin-top:auto"><div class="col-6"><p class="buv-groupStatH">Members</p><p class="buv-groupStatV">' + fmt(grp.memberCount) + '</p></div>' +
+'<div class="col-6"><p class="buv-groupStatH">Rank</p><p class="buv-groupStatV">' + esc(role ? role.name : '?') + '</p></div></div></div></div>' +
+(hasMultiple ? '<div class="buv-cursor buv-cursorFwd buv-grp-fwd"><span class="buv-cursorChevron">&#8250;</span></div>' : '') +
+'</div>';
+                });
+                groupSlideshowHTML = '<div id="buv-group-slides" class="flex">' + slidesArr.join('') + '</div>';
+                groupGridHTML = '<div class="flex buv-groupGrid" id="buv-groups-grid" style="display:none">' +
+                    gl.map(function(entry) {
+                        var grp = entry.group, role = entry.role;
+                        var gImg = resolveImg(gt[grp.id]);
+                        return '<div class="col-6 col-lg-2 pe-0 ps-0 buv-groupGridItem"><a href="/My/Groups.aspx?gid=' + grp.id + '"><div class="card pt-1 pb-1 pe-1 ps-1"><img class="buv-groupGridImg" src="' + gImg + '"><div class="pe-1 ps-1"><p class="buv-groupGridName">' + esc(grp.name) + '</p><p class="buv-groupGridCount">' + fmt(grp.memberCount) + ' Members</p><p class="buv-groupGridCount">' + esc(role ? role.name : '?') + '</p></div></div></a></div>';
+                    }).join('') + '</div>';
+            }
+            var groupsBodyHTML = '<div class="col-12">' + groupSlideshowHTML + groupGridHTML + '</div>';
+
+            var gameItems = (favGames && favGames.Data && favGames.Data.Items) ? favGames.Data.Items.slice(0, 6) : [];
+            var gamesContent = '';
+            if (gameItems.length) {
+                var favPlaceIds = gameItems.map(function(g) { return g.Item.AssetId; });
+                var favPlaceData = await fetchPlaceData(favPlaceIds);
+                var favCardsHTML = renderGameCards(favPlaceIds, favPlaceData);
+                gamesContent = favCardsHTML ? '<div class="buv-gamesContainer">' + favCardsHTML + '</div>' : '<div class="section-content-off">User has no favourited games.</div>';
+            } else {
+                gamesContent = '<div class="section-content-off">User has no favourited games.</div>';
+            }
+
+            var rb = Array.isArray(robloxBadges) ? robloxBadges : [];
+            var kbH = '';
+            if (rb.length) {
+                var kbi = rb.map(function(b) {
+                    var bName = b.name || '';
+                    var bClass = bName.toLowerCase().replace(/\s+/g, '');
+                    return '<div class="col-4 col-lg-2"><a href="/Badges.aspx"><div class="buv-koroneImgWrap"><span class="icon-' + bClass + '"></span></div><p class="buv-koroneLabel link2019 mb-0">' + esc(bName) + '</p></a></div>';
+                }).join('');
+                kbH = '<div class="flex d-none d-lg-flex marginStuff"><div class="col-10"><h3 class="buv-header">Korone Badges (' + rb.length + ')</h3></div><div class="col-12"><div class="card pt-4 pb-4 pe-4 ps-4" style="border:0;border-radius:0;background:var(--white-color)"><div class="flex">' + kbi + '</div></div></div></div>';
+            }
+
+            var bl = (badges && badges.data) ? badges.data.slice(0, 6) : [];
+            var bH = '';
+            if (bl.length) {
+                var bids = bl.map(function(b) { return b.id; });
+                var bt = await fetchThumbs(bids, 'assets');
+                bH = bl.map(function(b) {
+                    var bName = b.name || 'Badge';
+                    var bImg = resolveImg(bt[b.id]);
+                    return '<div class="col-4 col-lg-2 ml-1 mr-1" style="width:calc(16.6667% - 3px)"><a href="/catalog/' + b.id + '/' + slug(bName) + '"><div class="buv-itemWrap"><img class="buv-itemImg" src="' + bImg + '"></div><p class="mb-0 link2019 buv-itemLabel">' + esc(bName) + '</p></a></div>';
+                }).join('');
+            }
+
+            var pnH = '';
+            if (pn.length) {
+                var ni = pn.map(function(entry) { return '<p class="buv-pastName">' + esc(entry.name) + '</p>'; }).join('');
+                pnH = '<div><p class="buv-pastLabel buv-pastBody"><span><span class="icon-pastname buv-pastIcon"></span> Past usernames</span></p><div class="buv-pastTooltip">' + ni + '</div></div>';
+            }
+
+            var sH = '';
+            if (promoChannels) {
+                var socialMap = {Twitter:'twitter',Twitch:'twitch',YouTube:'youtube',Facebook:'facebook',Discord:'discord',Guilded:'guilded',TikTok:'tiktok'};
+                var socialKeys = Object.keys(socialMap);
+                for (var si = 0; si < socialKeys.length; si++) {
+                    var sk = socialKeys[si], sic = socialMap[sk];
+                    var su = promoChannels[sk] || promoChannels[sk.toLowerCase()];
+                    if (su) sH += '<a title="' + sk + '" class="buv-socialLink" href="' + esc(su) + '" target="_blank"><span class="social-link-icon ' + sic + '"></span></a>';
+                }
+            }
+
+            var vb = ver ? ' <span class="icon-verified buv-altIcon"></span>' : '';
+            var btag = ban ? ' <span style="background:#ef4444;color:#fff;font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;vertical-align:middle;margin-left:6px">BANNED</span>' : '';
+            var statusHTML = us ? '<p class="buv-statusMargin buv-status">"' + esc(us) + '"</p>' : '<p class="buv-statusMargin buv-status buv-statusHidden">&emsp;</p>';
+
+            var html = '' +
+'<div class="profileContainer-0-2-31" style="overflow:visible!important">' +
+'<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;border-radius:6px;padding:8px 14px;margin-bottom:10px;font-size:13px;display:flex;align-items:center;gap:8px"><span style="font-size:16px">⚠️</span><span>This account (<strong>#' + uid + '</strong>) is <strong>' + (ban ? 'banned' : 'deleted') + '</strong>. Profile data recovered via API. Feature by <a href="/users/51543/profile" style="color:#92400e;font-weight:600">cooper</a>.</span></div>' +
+'<div class="flex buv-profileHeader" style="overflow:visible!important"><div class="col-12" style="overflow:visible!important"><div class="card buv-card" style="overflow:visible!important"><div class="card-body buv-cardBody" style="overflow:visible!important"><div class="flex" style="overflow:visible!important">' +
+'<div class="buv-thumbContainer" style="overflow:visible!important"><div class="buv-headshot"><img alt="' + esc(un) + '" src="' + hu + '"><div class="buv-activity"></div></div><div class="buv-lastOnline">' + (ban ? 'Banned' : 'Deleted') + '</div></div>' +
+'<div class="col-12 col-lg-10 ps-0 buv-userInfo">' +
+'<h2 class="buv-username">' + esc(un) + vb + btag + '</h2>' +
+statusHTML +
+'<div class="flex buv-relContainer"><ul class="buv-relList">' +
+'<li style="width:25%;float:left;padding:0 5px;text-align:center"><div class="buv-statHeader">Friends</div><a class="buv-statLink" href="/users/' + uid + '/friends#!friends"><h3 class="buv-statText">' + fc + '</h3></a></li>' +
+'<li style="width:25%;float:left;padding:0 5px;text-align:center"><div class="buv-statHeader">Followers</div><a class="buv-statLink" href="/users/' + uid + '/friends#!followers"><h3 class="buv-statText">' + foc + '</h3></a></li>' +
+'<li style="width:25%;float:left;padding:0 5px;text-align:center"><div class="buv-statHeader">Following</div><a class="buv-statLink" href="/users/' + uid + '/friends#!followings"><h3 class="buv-statText">' + fic + '</h3></a></li>' +
+'<li style="width:25%;float:left;padding:0 5px;text-align:center"><div class="buv-statHeader">RAP</div><a class="buv-statLink" href="/internal/collectibles?userId=' + uid + '"><h3 class="buv-statText">' + rap + '</h3></a></li>' +
+'</ul></div></div></div></div></div></div></div>' +
+'<div><div class="buv-tabBar col-12">' +
+'<div class="buv-tab"><p class="buv-tabLabel buv-tabActive" id="buv-tab-about"><span class="buv-tabText">About</span></p></div>' +
+'<div class="buv-tab"><p class="buv-tabLabel buv-tabInactive" id="buv-tab-creations"><span class="buv-tabText">Creations</span></p></div>' +
+'</div>' +
+'<div class="col-12 buv-selected" id="buv-panel-about">' +
+'<div class="flex" style="margin-top:8px">' +
+'<div class="col-2"><h3 class="buv-header">About</h3></div>' +
+'<div class="col-10"><div class="flex justify-content-end" style="margin-bottom:5px">' + sH + '</div></div>' +
+'<div class="col-12"><div class="marginStuff buv-card"><p class="buv-aboutBody">' + esc(desc) + '</p>' +
+'<div class="divider-top me-4 ms-4"></div>' +
+'<div class="flex"><div class="col-6">' + pnH + '</div>' +
+'<div class="col-6"><div class="buv-report me-4"><div class="buv-reportWrap"><p class="buv-reportText"><a class="buv-reportLink" href="/abusereport/UserProfile?id=' + uid + '&amp;RedirectUrl=' + encodeURIComponent(location.href) + '"><span class="buv-reportIcon"></span>Report Abuse</a></p></div></div></div>' +
+'</div></div></div></div>' +
+'<div class="flex marginStuff">' +
+'<div class="col-12"><h3 class="buv-header">Currently Wearing</h3></div>' +
+'<div class="col-12 col-lg-6 pe-0"><div class="card buv-avatarCard"><div class="buv-avatarWrap"><img src="' + au + '"></div></div></div>' +
+'<div class="col-12 col-lg-6 ps-0"><div class="card buv-wearingCard"><div class="flex ps-4 pe-4 pt-4 pb-4">' + wH + '</div></div></div>' +
+'</div>' +
+'<div class="flex"><div class="col-10"><h3 class="buv-header">Friends (' + fc + ')</h3></div>' +
+'<div class="col-2"><div class="buv-seeAllWrap"><a class="buv-seeAll" href="/users/' + uid + '/friends">See All</a></div></div>' +
+'<div class="col-12"><div class="marginStuff buv-card"><ul class="buv-friendRow">' + fH + '</ul></div></div></div>' +
+(ci.length ? '<div class="flex"><div class="col-10"><h3 class="buv-header">Collections</h3></div><div class="col-2"><div class="buv-seeAllWrap"><a class="buv-seeAll" href="/users/' + uid + '/inventory">Inventory</a></div></div><div class="col-12"><div class="marginStuff buv-card"><div class="flex ps-4 pe-4 pt-4 pb-4">' + cH + '</div></div></div></div>' : '') +
+(gl.length ? '<div class="flex marginStuff" style="flex-direction:column"><div class="buv-groupHeaders"><h3 class="buv-header">Groups</h3><div class="col-lg-1" style="margin-left:auto"><a class="buv-toggleBtn" id="buv-grp-slideshow-btn"><div class="buv-btnWrap buv-btnInUse" id="buv-grp-slideshow-wrap"><span class="icon-slideshow"></span></div></a></div><div class="col-lg-1" style="padding-left:0.5em"><a class="buv-toggleBtn" id="buv-grp-grid-btn"><div class="buv-btnWrap buv-btnNotInUse" id="buv-grp-grid-wrap"><span class="icon-grid"></span></div></a></div></div>' + groupsBodyHTML + '</div>' : '') +
+'<div class="flex marginStuff"><div class="col-10"><h3 class="buv-header">Favorite Games</h3></div><div class="col-2"><div class="buv-seeAllWrap"><a class="buv-seeAll" href="/users/' + uid + '/favorites">Favorites</a></div></div><div class="col-12">' + gamesContent + '</div></div>' +
+kbH +
+'<div class="flex"><div class="col-10"><h3 class="buv-header">Badges</h3></div><div class="col-2"><div class="buv-seeAllWrap"><a class="buv-seeAll" href="/users/' + uid + '/inventory">See All</a></div></div><div class="col-12"><div class="marginStuff buv-card"><div class="flex ps-4 pe-4 pt-4 pb-4" style="gap:3px">' + bH + '</div></div></div></div>' +
+'<div class="flex"><div class="col-12"><h3 class="buv-header">Statistics</h3></div><div class="col-12"><div class="buv-card"><div class="flex buv-statsPad">' +
+'<div class="col-4"><p class="buv-statsLabel">Join Date</p><p class="buv-statsValue">' + jd + '</p></div>' +
+'<div class="col-4"><p class="buv-statsLabel">Place Visits</p><p class="buv-statsValue">' + pv + '</p></div>' +
+'<div class="col-4"><p class="buv-statsLabel">Status</p><p class="buv-statsValue" style="' + (ban ? 'color:#ef4444' : '') + '">' + (ban ? 'Banned' : 'Deleted') + '</p></div>' +
+'</div></div></div></div>' +
+'</div>' +
+'<div class="col-12" id="buv-panel-creations" style="display:none;margin-top:6px;margin-bottom:6px">' +
+'<div class="flex"><div class="col-12"><h3 class="buv-header">Games</h3></div><div class="col-12">' + ugContent + '</div></div>' +
+'</div></div></div>';
+
+            var mainEl = document.querySelector('.main-0-2-29');
+            if (!mainEl) return;
+            var err = mainEl.querySelector('.col-12.h-100');
+            if (err) err.remove();
+            var cont = mainEl.querySelector('.container-0-2-32');
+            if (!cont) {
+                cont = document.createElement('div');
+                cont.className = 'container-0-2-32 container';
+                cont.style.cssText = 'max-width:970px!important;overflow:visible!important';
+                var td = mainEl.querySelector('#theme-2016-enabled');
+                if (td) td.after(cont); else mainEl.prepend(cont);
+            } else {
+                cont.innerHTML = '';
+            }
+            cont.innerHTML = '<div class="row"><div class="col-12"></div></div>' + html;
+            document.title = un + "'s Profile - Korone";
+
+            var tabAbout = cont.querySelector('#buv-tab-about');
+            var tabCreations = cont.querySelector('#buv-tab-creations');
+            var panelAbout = cont.querySelector('#buv-panel-about');
+            var panelCreations = cont.querySelector('#buv-panel-creations');
+            if (tabAbout && tabCreations) {
+                tabCreations.addEventListener('click', function() {
+                    panelAbout.style.display = 'none'; panelCreations.style.display = 'block';
+                    tabAbout.className = 'buv-tabLabel buv-tabInactive'; tabCreations.className = 'buv-tabLabel buv-tabActive';
+                });
+                tabAbout.addEventListener('click', function() {
+                    panelAbout.style.display = ''; panelCreations.style.display = 'none';
+                    tabAbout.className = 'buv-tabLabel buv-tabActive'; tabCreations.className = 'buv-tabLabel buv-tabInactive';
                 });
             }
 
-            // ---- Inject styles (once) ----
-            if (!document.getElementById('pk16-styles')) {
-                const st = document.createElement('style');
-                st.id = 'pk16-styles';
-                st.textContent = `
-#pk16-ban-banner {
-    width:100%; padding:13px 0; text-align:center;
-    font-size:15px; font-weight:700; color:#fff;
-    background:#7a2d00; letter-spacing:0.05em;
-    box-shadow:0 0 28px 8px rgba(200,80,0,0.65),0 0 10px 2px rgba(255,130,0,0.5);
-    margin-bottom:0; border-radius:6px 6px 0 0;
-}
-#pk16-profile-wrap {
-    max-width:970px; margin:8px auto 0; padding:0 12px;
-    font-family:"HCo Gotham SSm","Helvetica Neue",Helvetica,Arial,sans-serif;
-}
-.pk16-card {
-    background:var(--white-color,#fff);
-    border-radius:0 0 6px 6px;
-    border:1px solid rgba(0,0,0,0.1);
-    margin-bottom:12px; padding:18px;
-}
-.pk16-card + .pk16-card { border-radius:6px; }
-.pk16-header { display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap; }
-.pk16-headshot {
-    width:110px; height:110px; border-radius:50%;
-    object-fit:cover; flex-shrink:0;
-    border:3px solid rgba(122,45,0,0.35);
-}
-.pk16-username {
-    font-size:22px; font-weight:700; margin:0 0 2px;
-    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-}
-.pk16-ban-tag {
-    font-size:11px; font-weight:700; padding:3px 9px;
-    background:#7a2d00; color:#fff; border-radius:4px;
-    box-shadow:0 0 8px rgba(200,80,0,0.55); letter-spacing:0.04em;
-}
-.pk16-atname { font-size:13px; color:#888; margin:0 0 10px; }
-.pk16-stats { display:flex; gap:0; margin-top:10px; flex-wrap:wrap; border-top:1px solid rgba(0,0,0,0.07); padding-top:10px; }
-.pk16-stat { text-align:center; flex:1; min-width:80px; padding:4px 6px; }
-.pk16-stat-label { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; }
-.pk16-stat-val { font-size:20px; font-weight:700; color:var(--text-color-primary,#191919); text-decoration:none; display:block; }
-.pk16-stat-val:hover { text-decoration:underline; }
-.pk16-section-title { font-size:16px; font-weight:700; margin:0 0 12px; }
-.pk16-friends-grid { display:flex; flex-wrap:wrap; gap:12px; list-style:none; margin:0; padding:0; }
-.pk16-friend { text-align:center; width:76px; }
-.pk16-friend img { width:60px; height:60px; border-radius:5px; object-fit:cover; display:block; margin:0 auto 5px; border:1px solid rgba(0,0,0,0.08); }
-.pk16-friend-name { font-size:11px; color:var(--text-color-primary,#191919); text-decoration:none; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.pk16-friend-name:hover { text-decoration:underline; }
-.pk16-group { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid rgba(0,0,0,0.07); }
-.pk16-group:last-child { border-bottom:none; padding-bottom:0; }
-.pk16-group-img { width:52px; height:52px; border-radius:5px; object-fit:cover; flex-shrink:0; border:1px solid rgba(0,0,0,0.08); }
-.pk16-group-name { font-weight:700; font-size:14px; text-decoration:none; color:var(--text-color-primary,#191919); display:block; }
-.pk16-group-name:hover { text-decoration:underline; }
-.pk16-group-meta { font-size:12px; color:#888; margin:3px 0 0; }
-.pk16-group-rank { font-size:11px; color:#aaa; margin:2px 0 0; }
-.pk16-desc { font-size:14px; line-height:1.6; white-space:pre-wrap; color:var(--text-color-primary,#191919); margin:0; }
-.pk16-avatar-img { max-width:220px; border-radius:8px; display:block; border:1px solid rgba(0,0,0,0.08); }
-.pk16-games-grid { display:flex; flex-wrap:wrap; gap:10px; list-style:none; margin:0; padding:0; }
-.pk16-game { width:160px; }
-.pk16-game img { width:100%; border-radius:5px; display:block; border:1px solid rgba(0,0,0,0.08); }
-.pk16-game-name { font-size:12px; font-weight:600; margin:4px 0 0; display:block; color:var(--text-color-primary,#191919); text-decoration:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.pk16-game-name:hover { text-decoration:underline; }
-.pk16-stat-grid { display:flex; flex-wrap:wrap; gap:16px; }
-.pk16-stat-cell .lbl { font-size:12px; color:#888; font-weight:600; display:block; margin-bottom:3px; }
-.pk16-stat-cell .val { font-size:15px; font-weight:700; }
-.pk16-empty { color:#aaa; font-size:13px; font-style:italic; margin:0; }
-.pk16-value-grid { display:flex; flex-wrap:wrap; gap:0; margin-top:0; border-top:1px solid rgba(0,0,0,0.07); padding-top:10px; }
-.pk16-value-cell { text-align:center; flex:1; min-width:90px; padding:4px 6px; }
-.pk16-value-cell .lbl { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.04em; font-weight:600; display:block; }
-.pk16-value-cell .val { font-size:18px; font-weight:700; color:var(--text-color-primary,#191919); display:block; }
-.pk16-value-cell .val.green { color:#1a7f3c; }
-.pk16-value-cell .val.gold { color:#b8860b; }
-.pk16-value-cell .val.blue { color:#0057b8; }
-.pk16-rank-badge { display:inline-flex; align-items:center; gap:5px; background:#f5e9c8; color:#7a5c00; border-radius:4px; padding:2px 8px; font-size:12px; font-weight:700; margin-top:6px; }
-.pk16-past-names { display:flex; flex-wrap:wrap; gap:6px; margin:0; padding:0; list-style:none; }
-.pk16-past-name { font-size:12px; background:rgba(0,0,0,0.05); border-radius:4px; padding:3px 9px; color:#555; font-family:monospace; }
-.pk16-items-list { display:flex; flex-direction:column; gap:8px; }
-.pk16-item { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid rgba(0,0,0,0.06); }
-.pk16-item:last-child { border-bottom:none; }
-.pk16-item img { width:48px; height:48px; border-radius:5px; object-fit:cover; border:1px solid rgba(0,0,0,0.08); flex-shrink:0; }
-.pk16-item-info { flex:1; min-width:0; }
-.pk16-item-name { font-size:13px; font-weight:600; color:var(--text-color-primary,#191919); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; text-decoration:none; }
-.pk16-item-name:hover { text-decoration:underline; }
-.pk16-item-meta { font-size:11px; color:#888; margin-top:2px; }
-.pk16-item-rap { font-size:13px; font-weight:700; color:#1a7f3c; flex-shrink:0; }
-`;
-                document.head.appendChild(st);
+            var slides = cont.querySelectorAll('.buv-groupSlidePair');
+            if (slides.length > 1) {
+                var cur = 0;
+                var showSlide = function(idx) { for (var i = 0; i < slides.length; i++) slides[i].style.display = i === idx ? 'flex' : 'none'; cur = idx; };
+                cont.addEventListener('click', function(e) {
+                    if (e.target.closest('.buv-grp-back')) showSlide((cur - 1 + slides.length) % slides.length);
+                    if (e.target.closest('.buv-grp-fwd')) showSlide((cur + 1) % slides.length);
+                });
             }
 
-            // ---- Build friends HTML ----
-            let friendsHTML = '<li><p class="pk16-empty">No friends to show.</p></li>';
-            if (friends.length) {
-                friendsHTML = friends.map(f => {
-                    const fid = f.id || f.userId;
-                    const fname = f.displayName || f.name || 'User';
-                    const fthumb = friendThumbMap[fid] || `${B}/thumbs/avatar-headshot.ashx?userId=${fid}`;
-                    return `<li class="pk16-friend">
-                        <a href="${B}/users/${fid}/profile">
-                            <img src="${fthumb}" alt="${fname}"
-                                 onerror="this.src='${B}/img/default-avatar.png'">
-                        </a>
-                        <a class="pk16-friend-name" href="${B}/users/${fid}/profile">${fname}</a>
-                    </li>`;
-                }).join('');
+            var slideshowBtn = cont.querySelector('#buv-grp-slideshow-btn');
+            var gridBtn = cont.querySelector('#buv-grp-grid-btn');
+            var slideshowWrap = cont.querySelector('#buv-grp-slideshow-wrap');
+            var gridWrap = cont.querySelector('#buv-grp-grid-wrap');
+            var slideshowDiv = cont.querySelector('#buv-group-slides');
+            var gridDiv = cont.querySelector('#buv-groups-grid');
+            if (slideshowBtn && gridBtn && slideshowDiv && gridDiv) {
+                slideshowBtn.addEventListener('click', function() {
+                    slideshowDiv.style.display = 'flex'; gridDiv.style.display = 'none';
+                    slideshowWrap.className = 'buv-btnWrap buv-btnInUse'; gridWrap.className = 'buv-btnWrap buv-btnNotInUse';
+                });
+                gridBtn.addEventListener('click', function() {
+                    slideshowDiv.style.display = 'none'; gridDiv.style.display = 'flex'; gridDiv.style.flexWrap = 'wrap';
+                    slideshowWrap.className = 'buv-btnWrap buv-btnNotInUse'; gridWrap.className = 'buv-btnWrap buv-btnInUse';
+                });
             }
-
-            // ---- Build groups HTML ----
-            let groupsHTML = '<p class="pk16-empty">No groups to show.</p>';
-            if (groups.length) {
-                groupsHTML = groups.map(g => {
-                    const grp = g.group || g;
-                    const gid   = grp.id || grp.groupId;
-                    const gname = grp.name || 'Group';
-                    const gdesc = (grp.description || '').slice(0, 100);
-                    const gmembers = grp.memberCount ? fmt16(grp.memberCount) : '?';
-                    const grank = g.role?.name || 'Member';
-                    const gthumb = `${B}/thumbs/group.ashx?groupId=${gid}&size=150x150`;
-                    return `<div class="pk16-group">
-                        <a href="${B}/My/Groups.aspx?gid=${gid}">
-                            <img class="pk16-group-img" src="${gthumb}" alt="${gname}"
-                                 onerror="this.style.display='none'">
-                        </a>
-                        <div>
-                            <a class="pk16-group-name" href="${B}/My/Groups.aspx?gid=${gid}">${gname}</a>
-                            ${gdesc ? `<p class="pk16-group-meta">${gdesc}${grp.description?.length > 100 ? '…' : ''}</p>` : ''}
-                            <p class="pk16-group-rank">Members: ${gmembers} &nbsp;·&nbsp; Rank: ${grank}</p>
-                        </div>
-                    </div>`;
-                }).join('');
-            }
-
-            // ---- Build games HTML ----
-            let gamesHTML = '';
-            if (games.length) {
-                gamesHTML = `<div class="pk16-card">
-                    <h3 class="pk16-section-title">Games</h3>
-                    <ul class="pk16-games-grid">
-                        ${games.map(g => {
-                            const gid = g.id || g.placeId;
-                            const gname = g.name || 'Game';
-                            const gthumb = `${B}/thumbs/place.ashx?placeId=${gid}&width=160&height=100`;
-                            return `<li class="pk16-game">
-                                <a href="${B}/games/${gid}/${encodeURIComponent(gname).replace(/%20/g,'-')}">
-                                    <img src="${gthumb}" alt="${gname}" onerror="this.style.display='none'">
-                                    <span class="pk16-game-name">${gname}</span>
-                                </a>
-                            </li>`;
-                        }).join('')}
-                    </ul>
-                </div>`;
-            }
-
-            // ---- Find main and inject ----
-            const mainEl = document.querySelector('[class*="main-0-2-"]') || document.querySelector('main');
-            if (!mainEl) { setTimeout(run16, 600); return; }
-            if (document.getElementById('pk16-ban-banner')) return;
-
-            mainEl.innerHTML = '';
-
-            const wrap = document.createElement('div');
-            wrap.id = 'pk16-profile-wrap';
-            wrap.innerHTML = `
-                <div id="pk16-ban-banner">⚠&nbsp;&nbsp;This user is banned or deleted</div>
-
-                <div class="pk16-card">
-                    <div class="pk16-header">
-                        <img class="pk16-headshot" src="${headshotUrl}" alt="${displayName}"
-                             onerror="this.src='${B}/img/default-avatar.png'">
-                        <div style="flex:1;min-width:0;">
-                            <h2 class="pk16-username">
-                                ${displayName}
-                                <span class="pk16-ban-tag">BANNED</span>
-                            </h2>
-                            <p class="pk16-atname">@${username}</p>
-                            <div class="pk16-stats">
-                                <div class="pk16-stat">
-                                    <span class="pk16-stat-label">Friends</span>
-                                    <a class="pk16-stat-val" href="${B}/users/${uid}/friends#!friends">${fmt16(friendCount)}</a>
-                                </div>
-                                <div class="pk16-stat">
-                                    <span class="pk16-stat-label">Followers</span>
-                                    <a class="pk16-stat-val" href="${B}/users/${uid}/friends#!followers">${fmt16(followerCount)}</a>
-                                </div>
-                                <div class="pk16-stat">
-                                    <span class="pk16-stat-label">Following</span>
-                                    <a class="pk16-stat-val" href="${B}/users/${uid}/friends#!followings">${fmt16(followingCount)}</a>
-                                </div>
-                                <div class="pk16-stat">
-                                    <span class="pk16-stat-label">RAP</span>
-                                    <a class="pk16-stat-val" href="${B}/internal/collectibles?userId=${uid}">${fmt16(kRap || rap)}</a>
-                                </div>
-                                <div class="pk16-stat">
-                                    <span class="pk16-stat-label">Value</span>
-                                    <a class="pk16-stat-val" href="${B}/internal/collectibles?userId=${uid}">${fmt16(kValue)}</a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="pk16-card">
-                    <h3 class="pk16-section-title">About</h3>
-                    <p class="pk16-desc">${description || '(no description)'}</p>
-                </div>
-
-                <div class="pk16-card">
-                    <h3 class="pk16-section-title">Currently Wearing</h3>
-                    <img class="pk16-avatar-img" src="${bodyUrl}" alt="${displayName}"
-                         onerror="this.src='${B}/img/default-avatar.png'">
-                </div>
-
-                <div class="pk16-card">
-                    <h3 class="pk16-section-title">
-                        Friends (${fmt16(friendCount)})
-                        <a href="${B}/users/${uid}/friends"
-                           style="font-size:12px;font-weight:400;margin-left:10px;color:#888;text-decoration:none;">See All</a>
-                    </h3>
-                    <ul class="pk16-friends-grid">${friendsHTML}</ul>
-                </div>
-
-                <div class="pk16-card">
-                    <h3 class="pk16-section-title">Groups</h3>
-                    ${groupsHTML}
-                </div>
-
-                ${gamesHTML}
-
-                ${(kRap || kValue || kItemCount || kRank) ? `
-                <div class="pk16-card">
-                    <h3 class="pk16-section-title">Inventory &amp; Value
-                        ${kRank ? `<span class="pk16-rank-badge">🏆 #${kRank} Leaderboard</span>` : ''}
-                    </h3>
-                    <div class="pk16-value-grid">
-                        <div class="pk16-value-cell">
-                            <span class="lbl">Total RAP</span>
-                            <span class="val green">${fmt16(kRap)}</span>
-                        </div>
-                        <div class="pk16-value-cell">
-                            <span class="lbl">Total Value</span>
-                            <span class="val gold">${fmt16(kValue)}</span>
-                        </div>
-                        <div class="pk16-value-cell">
-                            <span class="lbl">Limiteds</span>
-                            <span class="val blue">${kItemCount}</span>
-                        </div>
-                        ${kLastUpdated ? `<div class="pk16-value-cell">
-                            <span class="lbl">Last Updated</span>
-                            <span class="val" style="font-size:13px;">${kLastUpdated}</span>
-                        </div>` : ''}
-                    </div>
-                </div>` : ''}
-
-                ${kPastNames.length ? `
-                <div class="pk16-card">
-                    <h3 class="pk16-section-title">Past Usernames</h3>
-                    <ul class="pk16-past-names">
-                        ${kPastNames.map(n => {
-                            const name = typeof n === 'string' ? n : (n.name || n.username || JSON.stringify(n));
-                            return `<li class="pk16-past-name">@${name}</li>`;
-                        }).join('')}
-                    </ul>
-                </div>` : ''}
-
-                <div class="pk16-card">
-                    <h3 class="pk16-section-title">Statistics</h3>
-                    <div class="pk16-stat-grid">
-                        <div class="pk16-stat-cell">
-                            <span class="lbl">Join Date</span>
-                            <span class="val">${joinDate}</span>
-                        </div>
-                        <div class="pk16-stat-cell">
-                            <span class="lbl">RAP</span>
-                            <span class="val">${fmt16(kRap || rap)}</span>
-                        </div>
-                        ${kValue ? `<div class="pk16-stat-cell">
-                            <span class="lbl">Value</span>
-                            <span class="val">${fmt16(kValue)}</span>
-                        </div>` : ''}
-                        ${kItemCount ? `<div class="pk16-stat-cell">
-                            <span class="lbl">Limiteds</span>
-                            <span class="val">${kItemCount}</span>
-                        </div>` : ''}
-                        ${kRank ? `<div class="pk16-stat-cell">
-                            <span class="lbl">Rank</span>
-                            <span class="val">#${kRank}</span>
-                        </div>` : ''}
-                        <div class="pk16-stat-cell">
-                            <span class="lbl">Status</span>
-                            <span class="val" style="color:#e05500;">Banned</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            mainEl.appendChild(wrap);
         }
 
-        // Run once DOM is ready, retry if main not found yet
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', run16);
-        } else {
-            run16();
+        async function main16() {
+            var uid = getUserIdFromURL();
+            if (!uid) return;
+            await new Promise(function(r) { setTimeout(r, 800); });
+            if (!isBannedPage()) return;
+            var mainEl = document.querySelector('.main-0-2-29') || document.body;
+            var err = mainEl.querySelector('.col-12.h-100');
+            var loader = document.createElement('div');
+            loader.id = 'buv-loader';
+            loader.style.cssText = 'padding:40px;text-align:center;color:var(--text-color-secondary,#888);max-width:970px;margin:0 auto';
+            loader.innerHTML = '<div style="font-size:15px">\u23f3 Loading banned user profile\u2026</div>';
+            if (err) { err.style.display = 'none'; err.after(loader); } else mainEl.prepend(loader);
+            try {
+                await render(uid);
+            } catch (e) {
+                console.error('BUV:', e);
+                loader.innerHTML = '<div style="color:#ef4444">\u274c Error: ' + esc(e.message) + '</div>';
+                return;
+            } finally {
+                loader.remove();
+                if (err) err.remove();
+            }
         }
-
-        // SPA navigation
-        const _origPush16 = history.pushState;
-        history.pushState = function() {
-            _origPush16.apply(this, arguments);
-            const m = location.pathname.match(/^\/users\/(\d+)\/profile/);
-            if (m) setTimeout(run16, 400);
-        };
-        window.addEventListener('popstate', () => {
-            const m = location.pathname.match(/^\/users\/(\d+)\/profile/);
-            if (m) setTimeout(run16, 400);
-        });
-
+        main16();
     })();
 
 
@@ -7306,6 +7318,959 @@
         history.pushState = (...a) => { _push(...a); onNav(); };
         history.replaceState = (...a) => { _replace(...a); onNav(); };
         window.addEventListener('popstate', onNav);
+    })();
+
+    // ══════════════════════════════════════════════════════════════════════
+    // ══ #22 2018 USERS SEARCH ═════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════════
+    if (extEnabled(22)) (function () {
+        // Only run on user search pages
+        if (!location.pathname.startsWith('/search/users') && !location.href.includes('/search/users')) return;
+
+        function run() {
+            document.querySelector('.d-none')?.remove();
+            document.querySelectorAll('[class*="row-"]').forEach(item => {
+                if (!item.classList.contains('flex')) return;
+                // Don't double-inject
+                if (item.querySelector('.ng-scope')) return;
+
+                const searchText = document.querySelector('[class*="input"]')?.getAttribute('value')
+                    || new URLSearchParams(location.search).get('keyword') || '';
+
+                item.parentElement.style.width = '100%';
+                item.style.backgroundColor = '#E3E3E3';
+                item.innerHTML = `
+<div ng-include="'player-search-page'" class="ng-scope" style="width:100%;">
+  <div class="top-row ng-scope">
+    <h3 ng-if="!appMeta.isI18nEnabled" class="header ng-scope" style="display:flex;gap:5px;">
+      <div style="font-weight:300;width:max-content;">Player Results for</div>
+      <span class="keyword ng-binding" style="font-weight:400;">${searchText}</span>
+    </h3>
+    <div class="search-container" style="margin:6px 0;">
+      <div class="input-group" style="position:relative;display:table;clear:both;">
+        <input class="form-control input-field ng-pristine ng-untouched ng-valid ng-not-empty"
+          value="${searchText}" type="text" placeholder="Search"
+          style="font-weight:300;font-size:16px;height:38px;padding:5px 12px;width:101%;border:1px solid #B8B8B8;border-radius:3px;outline:none;box-shadow:none;border-right:0;">
+        <div class="input-group-btn" style="position:relative;display:table-cell;width:1%;vertical-align:middle;">
+          <button class="input-addon-btn" style="background:#fff;border:1px solid #B8B8B8;border-left:0;border-radius:3px;box-shadow:none;height:38px;outline:none;">
+            <span class="icon-search"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="row results-count ng-scope" style="display:flex;">
+      <span class="text-secondary hideable ng-binding" style="width:max-content;padding-right:2px;font-size:12px;font-weight:400;color:#757575;">1 - 12 of</span>
+      <span class="text-secondary ng-binding" style="width:max-content;padding-left:0;font-size:12px;font-weight:400;color:#757575;">1 <ng-pluralize>Result</ng-pluralize></span>
+    </div>
+  </div>
+  <div class="col-xs-12 section-content-off no-results ng-binding ng-scope ng-hide"
+    style="display:none;">There are no matches available for "${searchText}"</div>
+  <div class="col-xs-12 section-content-off no-results ng-binding ng-scope"
+    style="display:${searchText.length < 3 ? 'block' : 'none'};">Please enter at least 3 characters.</div>
+  <div class="col-xs-12 section-content-off unsafe-input ng-scope ng-hide" style="display:none;">
+    You have entered unsafe input. Please try your search again.</div>
+  <ul class="search-result avatar-cards ng-scope"></ul>
+  <div class="results-loading ng-scope" style="display:flex;flex-wrap:wrap;min-height:554.95px;align-content:flex-start;">
+    <img class="spinner loading-default load-image" src="https://www.pekora.zip/img/loading.gif"
+      style="width:80px;height:24px;vertical-align:middle;display:${searchText.length < 3 ? 'none' : 'block'};margin-top:10%;margin-left:calc(50% - 31px);">
+  </div>
+  <div class="row ng-scope">
+    <div class="rbx-pager">
+      <ul class="pager" style="display:flex;justify-content:center;align-items:center;">
+        <li class="pager-prev disabled" style="float:none;display:inline-block;vertical-align:top;list-style:none;margin:0;padding:0;">
+          <a style="background-color:#FFF;margin-right:5px;"><span class="icon-left"></span></a>
+        </li>
+        <li class="pager-cur" style="list-style:none;vertical-align:middle;height:max-content;">
+          <span id="rbx-current-page" class="ng-binding" style="font-weight:300;vertical-align:middle;">1</span>
+        </li>
+        <li class="pager-total" style="list-style:none;margin-left:2px;height:max-content;">
+          <span style="font-weight:300;vertical-align:middle;">of</span>
+          <span class="ng-binding" style="font-weight:300;vertical-align:middle;">1</span>
+        </li>
+        <li class="pager-next" style="float:none;display:inline-block;vertical-align:top;list-style:none;margin:0 0 0 5px;">
+          <a style="background-color:#FFF;"><span class="icon-right"></span></a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>`;
+
+                const input = item.querySelector('.input-field');
+                if (input) {
+                    input.addEventListener('keydown', e => {
+                        if (e.key === 'Enter')
+                            location.href = 'https://www.pekora.zip/search/users?keyword=' + encodeURIComponent(input.value);
+                    });
+                }
+
+                if (searchText.length > 2) {
+                    fetch(`https://www.pekora.zip/search/users/results?keyword=${encodeURIComponent(searchText)}&maxRows=12&startIndex=0`)
+                        .then(r => r.json())
+                        .then(data => {
+                            const userId = Number(document.querySelector('[class*="nameLink"]')?.href?.match(/\/users\/(\d+)/)?.[1] || 0);
+                            const result = item.querySelector('.results-loading');
+                            fetch(`https://www.pekora.zip/apisite/friends/v1/users/${userId}/friends/statuses?userIds=${(data.UserSearchResults || []).slice(0, 9).map(u => u.UserId).join(',')}`)
+                                .then(r => r.json()).catch(() => ({}))
+                                .then(friends => {
+                                    result.innerHTML = '';
+                                    (data.UserSearchResults || []).slice(0, 9).forEach(rdata => {
+                                        const relationship = friends?.data?.find(f => f.id === rdata.UserId) || {};
+                                        result.insertAdjacentHTML('afterbegin', `
+<li style="padding-left:0;width:33.3%;padding:0 5px 12px;list-style:none;">
+  <div style="border-radius:3px;padding:0;background-color:#fff;position:relative;box-shadow:0 1px 4px 0 rgba(25,25,25,0.3);">
+    <div style="min-height:115.99px;">
+      <div style="float:left;border:1px solid #B8B8B8;margin:12px;width:92px;position:relative;height:92px;border-radius:50%;background:transparent;">
+        <a href="https://www.pekora.zip/users/${rdata.UserId}/profile" style="width:100%;height:100%;display:block;">
+          <img src="https://www.pekora.zip/avatar-thumbnail/image?userId=${rdata.UserId}&width=420&height=420&format=png"
+            style="width:100%;height:100%;display:block;">
+          <div style="float:right;right:0;bottom:0;margin:0;position:absolute;display:${rdata.IsOnline ? 'block' : 'none'};">
+            <span class="avatar-status icon-${rdata.LastLocation === 'Website' ? 'online' : 'game'}" title="${rdata.LastLocation}"></span>
+          </div>
+        </a>
+      </div>
+      <div style="width:calc(100% - 146px);margin:0;padding:12px 0;float:left;">
+        <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px;font-weight:300;">${rdata.Name}</div>
+        <div style="color:#B8B8B8;padding:3px 0 0;font-size:14px;font-weight:400;">${rdata.IsOnline ? rdata.LastLocation : 'Offline'}</div>
+      </div>
+    </div>
+    ${relationship?.status ? `<div style="height:57px;padding:9px;background:#F2F2F2;border-top:1px solid #E3E3E3;border-radius:0 0 3px 3px;">
+      <button class="btn-control-md friend ${relationship.status === 'NotFriends' ? 'addfriend' : ''}"
+        data-userid="${rdata.UserId}"
+        style="width:100%;border:1px solid #B8B8B8;background:#fff;color:${(relationship.status === 'RequestSent' || relationship.status === 'Friends' || rdata.UserId === userId) ? '#B8B8B8' : '#191919'};cursor:${(relationship.status === 'RequestSent' || relationship.status === 'Friends' || rdata.UserId === userId) ? 'default' : 'pointer'};display:inline-block;font-weight:400;text-align:center;white-space:nowrap;vertical-align:middle;padding:9px;font-size:18px;line-height:100%;border-radius:3px;">
+        ${rdata.UserId === userId ? 'You' : relationship.status === 'NotFriends' ? 'Add Friend' : relationship.status === 'RequestSent' ? 'Request Sent' : relationship.status === 'RequestReceived' ? 'Accept Request' : 'Friends'}
+      </button>
+    </div>` : ''}
+  </div>
+</li>`);
+                                    });
+                                    result.querySelectorAll('.addfriend').forEach(btn => {
+                                        btn.addEventListener('click', () => {
+                                            const uid = btn.getAttribute('data-userid');
+                                            fetch(`https://www.pekora.zip/apisite/friends/v1/users/${uid}/request-friendship`, { method: 'POST' });
+                                            btn.textContent = 'Request Sent';
+                                            btn.classList.remove('addfriend');
+                                            btn.style.color = '#B8B8B8';
+                                            btn.style.cursor = 'default';
+                                        });
+                                    });
+                                });
+                        })
+                        .catch(() => {});
+                }
+            });
+        }
+
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+        else run();
+    })();
+
+    // ══════════════════════════════════════════════════════════════════════
+    // ══ #23 TRADE+ ════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════════
+    if (extEnabled(23)) (function () {
+        if (!location.pathname.startsWith('/Trade/')) return;
+
+        const BASE_URL = 'https://www.pekora.zip';
+        const AUTH_ENDPOINT = '/apisite/users/v1/users/authenticated';
+        const INVENTORY_ENDPOINT = '/apisite/inventory/v1/users/{userId}/assets/collectibles';
+        const TRADE_ENDPOINT = '/apisite/trades/v1/trades/send';
+        const COUNTER_ENDPOINT = '/apisite/trades/v1/trades/{tradeId}/counter';
+        const TRADE_INFO_ENDPOINT = '/apisite/trades/v1/trades/{tradeId}';
+        const KOLIMONS_API = 'https://www.koromons.xyz/api/items';
+        const LIMIT = 100;
+        const PER_PAGE = 10;
+        const MAX_SELECT = 4;
+
+        let injecting = false;
+        let injected = false;
+        let csrfToken = null;
+        let kolimonData = null;
+        let kolimonLoading = false;
+        let kolimonLoaded = false;
+        let offerEl = null;
+        let darkMode = true;
+
+        function getTradeSessionId() {
+            const p = new URLSearchParams(location.search);
+            for (const k of ['TradeSessionId', 'tradeSessionId', 'tradesessionid']) {
+                const v = p.get(k); if (v && /^\d+$/.test(v)) return v;
+            }
+            const m = location.href.match(/[?&]TradeSessionId=(\d+)/i);
+            return m ? m[1] : null;
+        }
+
+        const tradeSessionId = getTradeSessionId();
+        const isCounter = !!tradeSessionId;
+
+        try {
+            const saved = GM_getValue('tp_dark', true);
+            if (saved !== null && saved !== undefined) darkMode = (saved === true || saved === 'true');
+        } catch (e) {}
+
+        function saveTheme() {
+            try { GM_setValue('tp_dark', darkMode); } catch (e) {}
+        }
+
+        const STYLE = document.createElement('style');
+        STYLE.textContent = `
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        [data-tp-theme="dark"] .tp-item-img-wrap { background: #1a1a28 !important; }
+        [data-tp-theme="light"] .tp-item-img-wrap { background: #e8e9ed !important; }
+        [data-tp-theme="dark"] .tp-slot { background: #1a1a28 !important; }
+        [data-tp-theme="light"] .tp-slot { background: #e8e9ed !important; }
+        [data-tp-theme="dark"] body { background: #0c0c12 !important; }
+        [data-tp-theme="light"] body { background: #f4f5f7 !important; }
+        [data-tp-theme="dark"] {
+            --tp-page-bg:#0c0c12;--tp-bg:#0c0c12;--tp-card:#13131c;--tp-card-raised:#181824;
+            --tp-border:#1f1f2e;--tp-border-light:#2a2a3d;--tp-text:#e2e2ec;
+            --tp-text-secondary:#a0a0b8;--tp-text-dim:#7a7a94;--tp-text-muted:#4e4e64;
+            --tp-accent:#7c6cf0;--tp-accent-dim:rgba(124,108,240,0.14);--tp-accent-glow:rgba(124,108,240,0.25);
+            --tp-green:#34d399;--tp-green-bg:rgba(52,211,153,0.1);--tp-red:#f87171;
+            --tp-red-bg:rgba(248,113,113,0.1);--tp-orange:#fb923c;--tp-blue:#60a5fa;
+            --tp-pink:#f472b6;--tp-yellow:#fbbf24;--tp-slot-empty:0.12;
+            --tp-shadow:0 2px 8px rgba(0,0,0,0.4);--tp-shadow-lg:0 8px 32px rgba(0,0,0,0.5);
+            --tp-rarity-common:#9ca3af;--tp-rarity-rare:#60a5fa;--tp-rarity-legendary:#fbbf24;
+        }
+        [data-tp-theme="light"] {
+            --tp-page-bg:#f4f5f7;--tp-bg:#edeef2;--tp-card:#ffffff;--tp-card-raised:#ffffff;
+            --tp-border:#e2e3e8;--tp-border-light:#d4d5dc;--tp-text:#111827;
+            --tp-text-secondary:#4b5563;--tp-text-dim:#6b7280;--tp-text-muted:#9ca3af;
+            --tp-accent:#6d5cdb;--tp-accent-dim:rgba(109,92,219,0.1);--tp-accent-glow:rgba(109,92,219,0.18);
+            --tp-green:#059669;--tp-green-bg:rgba(5,150,105,0.08);--tp-red:#dc2626;
+            --tp-red-bg:rgba(220,38,38,0.06);--tp-orange:#d97706;--tp-blue:#2563eb;
+            --tp-pink:#db2777;--tp-yellow:#ca8a04;--tp-slot-empty:0.2;
+            --tp-shadow:0 1px 3px rgba(0,0,0,0.08);--tp-shadow-lg:0 4px 16px rgba(0,0,0,0.1);
+            --tp-rarity-common:#6b7280;--tp-rarity-rare:#2563eb;--tp-rarity-legendary:#ca8a04;
+        }
+        [data-tp-theme] .container-0-2-37{background:var(--tp-page-bg)!important;}
+        [data-tp-theme] .container-0-2-37 .font-size-18,[data-tp-theme] .container-0-2-37 .font-size-14,[data-tp-theme] .container-0-2-37 .exitText-0-2-32{color:var(--tp-text)!important;}
+        [data-tp-theme] .offerRequestCard-0-2-34{background:var(--tp-card)!important;border-color:var(--tp-border)!important;}
+        [data-tp-theme] .offerRequestCard-0-2-34 h3,[data-tp-theme] .offerRequestCard-0-2-34 p,[data-tp-theme] .offerRequestCard-0-2-34 span,[data-tp-theme] .offerRequestCard-0-2-34 div{color:var(--tp-text)!important;}
+        [data-tp-theme] .itemCard-0-2-107{background:var(--tp-card)!important;border-color:var(--tp-border)!important;}
+        [data-tp-theme] .sendButton-0-2-36,[data-tp-theme] .buyButton-0-2-39{background:var(--tp-accent)!important;color:#fff!important;}
+        .tp-counter-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(251,146,60,0.15);border:1px solid rgba(251,146,60,0.3);color:var(--tp-orange)!important;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:0.3px;margin-bottom:10px;font-family:'Inter',sans-serif;}
+        .tp-counter-badge::before{content:'↩';font-size:13px;}
+        .tp-prefill-status{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;margin-bottom:10px;font-size:11px;font-weight:600;font-family:'Inter',sans-serif;animation:tp-fadeUp 0.3s ease both;}
+        .tp-prefill-loading{background:var(--tp-accent-dim);border:1px solid rgba(124,108,240,0.2);color:var(--tp-accent)!important;}
+        .tp-prefill-ok{background:var(--tp-green-bg);border:1px solid rgba(52,211,153,0.2);color:var(--tp-green)!important;}
+        .tp-prefill-err{background:var(--tp-red-bg);border:1px solid rgba(248,113,113,0.2);color:var(--tp-red)!important;}
+        .tp-item-meta .tp-tag.tp-tag-rap{background:rgba(96,165,250,0.12)!important;color:var(--tp-blue)!important;}
+        .tp-item-meta .tp-tag.tp-tag-val{background:rgba(244,114,182,0.12)!important;color:var(--tp-pink)!important;}
+        .tp-item-meta .tp-tag.tp-tag-serial{background:rgba(251,146,60,0.12)!important;color:var(--tp-orange)!important;}
+        .tp-item-meta .tp-tag.tp-demand-amazing{color:var(--tp-red)!important;}
+        .tp-item-meta .tp-tag.tp-demand-high{color:var(--tp-orange)!important;}
+        .tp-item-meta .tp-tag.tp-demand-decent{color:var(--tp-yellow)!important;}
+        .tp-item-meta .tp-tag.tp-demand-normal{color:var(--tp-blue)!important;}
+        .tp-item-meta .tp-tag.tp-demand-low,.tp-item-meta .tp-tag.tp-demand-terrible{color:var(--tp-text-muted)!important;}
+        .tp-item-meta .tp-tag.tp-rarity-rare{color:var(--tp-rarity-rare)!important;}
+        .tp-item-meta .tp-tag.tp-rarity-legendary{color:var(--tp-rarity-legendary)!important;}
+        .tp-item.tp-item-rarity-rare{border-color:rgba(96,165,250,0.3)!important;}
+        .tp-item.tp-item-rarity-legendary{border-color:rgba(251,191,36,0.3)!important;}
+        @keyframes tp-fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes tp-scaleIn{from{opacity:0;transform:scale(0.94)}to{opacity:1;transform:scale(1)}}
+        @keyframes tp-slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes tp-checkPop{0%{transform:scale(0)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+        @keyframes tp-spin-anim{to{transform:rotate(360deg)}}
+        @keyframes tp-ripple{0%{transform:scale(0);opacity:0.4}100%{transform:scale(4);opacity:0}}
+        .tp-section{margin-top:8px;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;animation:tp-fadeUp 0.35s cubic-bezier(0.16,1,0.3,1) both;}
+        .tp-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px;}
+        .tp-section-title{font-size:13px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;margin:0;display:flex;align-items:center;gap:6px;}
+        .tp-section-title::before{content:'';width:3px;height:13px;background:var(--tp-accent);border-radius:2px;}
+        .tp-count{background:var(--tp-accent-dim);padding:2px 8px;border-radius:10px;font-weight:600;font-size:10px;color:var(--tp-accent)!important;}
+        .tp-search-row{display:flex;gap:6px;margin-bottom:8px;align-items:center;}
+        .tp-search-box{position:relative;flex:1;}
+        .tp-search-input{width:100%;height:32px;padding:0 28px 0 30px;border:1px solid var(--tp-border);border-radius:8px;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color 0.2s,box-shadow 0.2s;background:var(--tp-card)!important;color:var(--tp-text)!important;}
+        .tp-search-input:focus{border-color:var(--tp-accent);box-shadow:0 0 0 3px var(--tp-accent-dim);}
+        .tp-search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;color:var(--tp-text-muted)!important;}
+        .tp-search-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:14px;border:none;background:none;display:none;padding:0;line-height:1;transition:color 0.15s;font-family:inherit;color:var(--tp-text-muted)!important;}
+        .tp-search-clear.visible{display:block;}
+        .tp-select{height:32px;font-size:11px;padding:0 22px 0 8px;border:1px solid var(--tp-border);border-radius:8px;outline:none;cursor:pointer;font-family:inherit;transition:border-color 0.2s;min-width:72px;-webkit-appearance:none;appearance:none;background:var(--tp-card)!important;color:var(--tp-text)!important;}
+        .tp-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
+        .tp-item{position:relative;cursor:pointer;border-radius:8px;overflow:hidden;background:var(--tp-card)!important;border:1px solid var(--tp-border);transition:transform 0.15s,box-shadow 0.15s,border-color 0.15s;}
+        .tp-item:hover{transform:translateY(-2px);box-shadow:var(--tp-shadow-lg);border-color:var(--tp-border-light);z-index:2;}
+        .tp-item.tp-sel{border-color:var(--tp-green)!important;box-shadow:0 0 0 1px var(--tp-green),0 4px 12px var(--tp-green-bg);}
+        .tp-item.tp-maxed{opacity:0.25;cursor:not-allowed;pointer-events:none;}
+        .tp-item-inner{padding:6px 6px 5px;}
+        .tp-item-img-wrap{position:relative;width:100%;aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--tp-bg)!important;margin-bottom:4px;}
+        .tp-item-img-wrap img{width:100%;height:100%;object-fit:contain;display:block;transition:transform 0.2s;}
+        .tp-item:hover .tp-item-img-wrap img{transform:scale(1.06);}
+        .tp-ck{position:absolute;top:4px;right:4px;background:var(--tp-green)!important;color:#fff!important;border-radius:50%;width:16px;height:16px;font-size:9px;line-height:16px;text-align:center;display:none;pointer-events:none;}
+        .tp-item.tp-sel .tp-ck{display:block;animation:tp-checkPop 0.2s cubic-bezier(0.34,1.56,0.64,1);}
+        .tp-item-n{font-size:10px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0 0 2px;}
+        .tp-item-n a{color:var(--tp-text)!important;}
+        .tp-item-n a:hover{color:var(--tp-accent)!important;}
+        .tp-item-meta{display:flex;flex-wrap:wrap;gap:2px;}
+        .tp-tag{display:inline-flex;align-items:center;padding:1px 4px;border-radius:3px;font-size:8px;font-weight:600;line-height:13px;}
+        .tp-pag{display:flex;align-items:center;justify-content:center;gap:3px;margin-top:8px;padding:4px 0;}
+        .tp-pag-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid var(--tp-border);border-radius:6px;font-size:12px;cursor:pointer;transition:all 0.15s;font-family:inherit;background:var(--tp-card)!important;color:var(--tp-text-dim)!important;}
+        .tp-pag-btn:hover:not(:disabled){border-color:var(--tp-accent);color:var(--tp-accent)!important;}
+        .tp-pag-btn:disabled{opacity:0.2;cursor:not-allowed;}
+        .tp-pag-num{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:all 0.15s;background:none!important;font-family:inherit;color:var(--tp-text-dim)!important;}
+        .tp-pag-num.active{border-color:var(--tp-accent);background:var(--tp-accent)!important;color:#fff!important;}
+        .tp-loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:32px 0;font-size:12px;grid-column:1/-1;color:var(--tp-text-muted)!important;}
+        .tp-spin{width:14px;height:14px;border:2px solid var(--tp-border);border-top-color:var(--tp-accent);border-radius:50%;animation:tp-spin-anim 0.7s linear infinite;}
+        .tp-empty{text-align:center;font-size:12px;padding:32px 8px;grid-column:1/-1;color:var(--tp-text-muted)!important;}
+        .tp-err{display:flex;align-items:center;justify-content:center;gap:8px;padding:24px 0;font-size:12px;grid-column:1/-1;color:var(--tp-red)!important;}
+        .tp-retry{background:var(--tp-accent)!important;color:#fff!important;border:none;border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;}
+        .tp-offer-card{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--tp-card)!important;border:1px solid var(--tp-border);border-radius:12px;padding:16px;animation:tp-scaleIn 0.3s cubic-bezier(0.16,1,0.3,1) both;box-shadow:var(--tp-shadow);}
+        .tp-offer-half{margin-bottom:4px;}
+        .tp-offer-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;color:var(--tp-text)!important;}
+        .tp-offer-totals{font-size:10px;font-weight:500;letter-spacing:0;text-transform:none;display:flex;gap:8px;}
+        .tp-t-rap{color:var(--tp-blue)!important;}
+        .tp-t-val{color:var(--tp-pink)!important;}
+        .tp-offer-slots{display:flex;gap:6px;}
+        .tp-slot{flex:1;aspect-ratio:1;border-radius:8px;border:1.5px dashed var(--tp-border-light);background:var(--tp-bg)!important;overflow:hidden;position:relative;transition:border-color 0.15s;}
+        .tp-slot.tp-filled{border-style:solid;border-color:var(--tp-border);border-width:1px;}
+        .tp-slot.tp-filled:hover{border-color:var(--tp-red);}
+        .tp-slot img{width:100%;height:100%;object-fit:contain;display:block;cursor:pointer;transition:opacity 0.15s;}
+        .tp-slot.tp-filled:hover img{opacity:0.6;}
+        .tp-slot-remove{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.15s;pointer-events:none;font-size:18px;font-weight:700;color:var(--tp-red)!important;}
+        .tp-slot.tp-filled:hover .tp-slot-remove{opacity:1;}
+        .tp-slot-serial{position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,0.65)!important;font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px;pointer-events:none;color:var(--tp-orange)!important;}
+        .tp-robux-row{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--tp-text-dim)!important;}
+        .tp-robux-inp{width:100px;height:26px;padding:0 8px;border:1px solid var(--tp-border);border-radius:6px;font-size:11px;font-family:inherit;background:var(--tp-bg)!important;color:var(--tp-text)!important;outline:none;box-sizing:border-box;transition:border-color 0.2s;}
+        .tp-robux-inp:focus{border-color:var(--tp-accent);box-shadow:0 0 0 2px var(--tp-accent-dim);}
+        .tp-offer-div{border:none;border-top:1px solid var(--tp-border);margin:14px 0;}
+        .tp-analytics{background:var(--tp-bg)!important;border:1px solid var(--tp-border);border-radius:8px;padding:10px 12px;margin-top:12px;animation:tp-slideDown 0.25s ease both;}
+        .tp-analytics-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--tp-text-dim)!important;}
+        .tp-an-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:11px;}
+        .tp-an-label{color:var(--tp-text-muted)!important;}
+        .tp-an-pos{color:var(--tp-green)!important;}
+        .tp-an-neg{color:var(--tp-red)!important;}
+        .tp-an-neu{color:var(--tp-text-dim)!important;}
+        .tp-an-value{font-weight:600;}
+        .tp-an-divider{border:none;border-top:1px solid var(--tp-border);margin:5px 0;}
+        .tp-verdict{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:6px;margin-top:4px;}
+        .tp-verdict-win{background:var(--tp-green-bg)!important;}
+        .tp-verdict-loss{background:var(--tp-red-bg)!important;}
+        .tp-verdict-even{background:var(--tp-accent-dim)!important;}
+        .tp-verdict-label{font-size:12px;font-weight:700;}
+        .tp-verdict-pct{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;}
+        .tp-verdict-pct-win{background:var(--tp-green-bg)!important;color:var(--tp-green)!important;}
+        .tp-verdict-pct-loss{background:var(--tp-red-bg)!important;color:var(--tp-red)!important;}
+        .tp-verdict-pct-even{background:var(--tp-accent-dim)!important;color:var(--tp-text-dim)!important;}
+        .tp-send-btn{width:100%;padding:10px 0;margin-top:12px;background:var(--tp-accent)!important;color:#fff!important;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+        .tp-send-btn:hover:not(:disabled){filter:brightness(1.1);box-shadow:0 4px 16px var(--tp-accent-glow);transform:translateY(-1px);}
+        .tp-send-btn:disabled{opacity:0.4;cursor:not-allowed;}
+        .tp-counter-btn{width:100%;padding:10px 0;margin-top:6px;background:transparent!important;color:var(--tp-orange)!important;border:1px solid rgba(251,146,60,0.4);border-radius:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+        .tp-counter-btn:hover:not(:disabled){background:rgba(251,146,60,0.1)!important;border-color:var(--tp-orange);}
+        .tp-counter-btn:disabled{opacity:0.4;cursor:not-allowed;}
+        .tp-btn-ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,0.25)!important;width:10px;height:10px;animation:tp-ripple 0.5s ease-out forwards;pointer-events:none;}
+        .tp-send-st{text-align:center;font-size:11px;margin-top:6px;min-height:16px;font-weight:500;}
+        .tp-send-ok{color:var(--tp-green)!important;}
+        .tp-send-er{color:var(--tp-red)!important;}
+        .tp-fee{font-size:10px;margin-top:6px;text-align:center;color:var(--tp-text-muted)!important;}
+        .tp-hidden{display:none!important;}
+        `;
+        document.head.appendChild(STYLE);
+
+        const ASSET_TYPES = [
+            {value:'null',label:'All'},{value:'8',label:'Hats'},{value:'41',label:'Hair'},
+            {value:'42',label:'Face Acc.'},{value:'43',label:'Neck'},{value:'44',label:'Shoulders'},
+            {value:'45',label:'Front'},{value:'46',label:'Back'},{value:'47',label:'Waist'},
+            {value:'19',label:'Gear'},{value:'18',label:'Faces'},
+        ];
+        const SORT_OPTIONS = [
+            {value:'default',label:'Default'},{value:'rap-desc',label:'RAP ↓'},{value:'rap-asc',label:'RAP ↑'},
+            {value:'val-desc',label:'Value ↓'},{value:'val-asc',label:'Value ↑'},
+            {value:'name-asc',label:'A → Z'},{value:'name-desc',label:'Z → A'},
+            {value:'demand-desc',label:'Demand ↓'},
+        ];
+        const DEMAND_ORDER = {amazing:5,high:4,decent:3,normal:2,low:1,terrible:0,unvalued:-1};
+        const tpCache = {};
+        let authUser = null;
+
+        function applyTheme() {
+            document.documentElement.setAttribute('data-tp-theme', darkMode ? 'dark' : 'light');
+            document.body.setAttribute('data-tp-theme', darkMode ? 'dark' : 'light');
+            const c = document.querySelector('.container-0-2-37');
+            if (c) c.setAttribute('data-tp-theme', darkMode ? 'dark' : 'light');
+            const toggle = document.getElementById('tp-theme-toggle');
+            if (toggle) toggle.querySelector('.tp-theme-icon').textContent = darkMode ? '☀' : '☽';
+        }
+
+        function createToggle() {
+            if (document.getElementById('tp-theme-toggle')) return;
+            const btn = document.createElement('button');
+            btn.id = 'tp-theme-toggle';
+            btn.title = 'Toggle theme (Trade+)';
+            btn.style.cssText = 'position:fixed;top:12px;right:52px;z-index:99999;width:36px;height:36px;border-radius:8px;border:1px solid var(--tp-border);background:var(--tp-card);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;transition:all 0.25s;box-shadow:var(--tp-shadow);padding:0;color:var(--tp-text);font-family:inherit;';
+            const icon = document.createElement('span'); icon.className = 'tp-theme-icon'; icon.textContent = darkMode ? '☀' : '☽';
+            btn.appendChild(icon);
+            btn.addEventListener('click', () => { darkMode = !darkMode; saveTheme(); applyTheme(); });
+            document.body.appendChild(btn);
+        }
+
+        function fetchKolimons() {
+            return new Promise(resolve => {
+                if (kolimonLoaded) { resolve(kolimonData); return; }
+                if (kolimonLoading) { const iv = setInterval(() => { if (kolimonLoaded) { clearInterval(iv); resolve(kolimonData); } }, 150); return; }
+                kolimonLoading = true;
+                const done = d => { kolimonData = d || {}; kolimonLoaded = true; resolve(kolimonData); };
+                GM_xmlhttpRequest({
+                    method:'GET', url:KOLIMONS_API, responseType:'json',
+                    headers:{'Accept':'application/json'},
+                    onload: r => { try { done(parseKolimons(typeof r.response==='string'?JSON.parse(r.response):r.response)); } catch { done({}); } },
+                    onerror: () => done({}), ontimeout: () => done({})
+                });
+            });
+        }
+
+        function parseKolimons(raw) {
+            const map = {}, arr = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
+            if (Array.isArray(arr)) arr.forEach(item => {
+                const id = String(item.itemId || item.assetId || item.id);
+                if (id && id !== 'undefined') map[id] = {
+                    value: item.Value ?? 0, rap: item.RAP ?? 0,
+                    demand: (item.Demand || 'unvalued').toLowerCase(),
+                    rarity: item.IsRare ? 'rare' : 'common', acronym: item.Acronym || null
+                };
+            });
+            return map;
+        }
+
+        function getKolimon(id) { return kolimonData?.[String(id)] || null; }
+
+        function fetchJSON(url) {
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method:'GET', url, responseType:'json', headers:{'Accept':'application/json'},
+                    onload: r => { if (r.status>=200&&r.status<300) resolve(typeof r.response==='string'?JSON.parse(r.response):r.response); else reject(new Error('HTTP '+r.status)); },
+                    onerror: () => reject(new Error('Network error')), ontimeout: () => reject(new Error('Timeout'))
+                });
+            });
+        }
+
+        function postJSON(url, body, token) {
+            return new Promise((resolve, reject) => {
+                const headers = {'Accept':'application/json','Content-Type':'application/json'};
+                if (token) headers['x-csrf-token'] = token;
+                GM_xmlhttpRequest({
+                    method:'POST', url, responseType:'json', headers, data: JSON.stringify(body),
+                    onload: r => { resolve({status:r.status, data:typeof r.response==='string'?JSON.parse(r.response):r.response, headers:r.responseHeaders}); },
+                    onerror: () => reject(new Error('Network error')), ontimeout: () => reject(new Error('Timeout'))
+                });
+            });
+        }
+
+        function extractCsrf(h) {
+            if (typeof h==='string') { const m=h.match(/x-csrf-token:\s*(.+)/i); return m?m[1].trim():null; }
+            return h?.['x-csrf-token']||null;
+        }
+
+        async function sendTrade(body) {
+            let r = await postJSON(BASE_URL+TRADE_ENDPOINT, body, csrfToken);
+            if (r.status===403) { const t=extractCsrf(r.headers); if(t){csrfToken=t; r=await postJSON(BASE_URL+TRADE_ENDPOINT,body,csrfToken);} }
+            if (r.status>=200&&r.status<300) return r.data;
+            throw new Error(r.data?.errors?.[0]?.message||r.data?.message||'HTTP '+r.status);
+        }
+
+        async function counterTrade(tradeId, body) {
+            const url = BASE_URL+COUNTER_ENDPOINT.replace('{tradeId}', tradeId);
+            let r = await postJSON(url, body, csrfToken);
+            if (r.status===403) { const t=extractCsrf(r.headers); if(t){csrfToken=t; r=await postJSON(url,body,csrfToken);} }
+            if (r.status>=200&&r.status<300) return r.data;
+            throw new Error(r.data?.errors?.[0]?.message||r.data?.message||'HTTP '+r.status);
+        }
+
+        async function fetchTradeInfo(tradeId) { return fetchJSON(BASE_URL+TRADE_INFO_ENDPOINT.replace('{tradeId}', tradeId)); }
+
+        function mapTradeItem(ua) {
+            return { userAssetId:ua.id, assetId:ua.assetId, name:ua.name, recentAveragePrice:ua.recentAveragePrice??null, serialNumber:ua.serialNumber??null,
+                thumbnailUrl:BASE_URL+'/thumbs/asset.ashx?assetId='+ua.assetId+'&width=110&height=110&format=png' };
+        }
+
+        async function getAuth() {
+            if (authUser) return authUser;
+            try { const d=await fetchJSON(BASE_URL+AUTH_ENDPOINT); if(d?.id){authUser={id:String(d.id),name:d.name||'?'};return authUser;} } catch {}
+            const l=document.querySelector('a[href*="/users/"][href*="/profile"]');
+            if(l){const m=l.href.match(/\/users\/(\d+)/);if(m){authUser={id:m[1],name:'?'};return authUser;}}
+            throw new Error('Auth failed');
+        }
+
+        function getPartnerId() {
+            const p=new URLSearchParams(location.search);
+            for (const k of ['TradePartnerID','tradepartnerid','userId','userid','id']) { const v=p.get(k); if(v&&/^\d+$/.test(v))return v; }
+            const m=location.href.match(/[?&](?:TradePartnerID|tradepartnerid|userId|userid|id)=(\d+)/i);
+            if(m)return m[1];
+            if(authUser){for(const l of document.querySelectorAll('a[href*="/users/"][href*="/profile"]')){const lm=l.href.match(/\/users\/(\d+)/);if(lm&&lm[1]!==authUser.id)return lm[1];}}
+            return null;
+        }
+
+        async function fetchAll(uid, type, prog) {
+            const ck=uid+'_'+type;
+            if(tpCache[ck]?.ok)return tpCache[ck].items;
+            const all=[];let cur='';
+            while(true){
+                const q=new URLSearchParams({limit:String(LIMIT),assetType:type});if(cur)q.set('cursor',cur);
+                const d=await fetchJSON(BASE_URL+INVENTORY_ENDPOINT.replace('{userId}',uid)+'?'+q);
+                all.push(...(d.data||[]));if(prog)prog(all.length);
+                const nc=d.nextPageCursor||null;if(!nc)break;cur=nc;
+            }
+            tpCache[ck]={items:all,ok:true};return all;
+        }
+
+        const gn=i=>i.name||'Unknown';
+        const gid=i=>i.assetId||0;
+        const guaid=i=>i.userAssetId||0;
+        const grap=i=>i.recentAveragePrice??null;
+        const gserial=i=>i.serialNumber??null;
+        const gth=i=>i.thumbnailUrl||(gid(i)?BASE_URL+'/thumbs/asset.ashx?assetId='+gid(i)+'&width=110&height=110&format=png':'/img/empty.png');
+        const getVal=i=>{const k=getKolimon(gid(i));return k?.value??0;};
+        const getRap=i=>{const k=getKolimon(gid(i));if(k?.rap>0)return k.rap;return grap(i)||0;};
+        const getDemand=i=>getKolimon(gid(i))?.demand||'unvalued';
+        const getRarity=i=>getKolimon(gid(i))?.rarity||'common';
+
+        function sortItems(items, key) {
+            const a=[...items];
+            if(key==='rap-desc')return a.sort((x,y)=>getRap(y)-getRap(x));
+            if(key==='rap-asc')return a.sort((x,y)=>getRap(x)-getRap(y));
+            if(key==='val-desc')return a.sort((x,y)=>getVal(y)-getVal(x));
+            if(key==='val-asc')return a.sort((x,y)=>getVal(x)-getVal(y));
+            if(key==='name-asc')return a.sort((x,y)=>gn(x).localeCompare(gn(y)));
+            if(key==='name-desc')return a.sort((x,y)=>gn(y).localeCompare(gn(x)));
+            if(key==='demand-desc')return a.sort((x,y)=>(DEMAND_ORDER[getDemand(y)]||0)-(DEMAND_ORDER[getDemand(x)]||0));
+            return a;
+        }
+
+        function fmtNum(n) {
+            if(n>=1000000)return(n/1000000).toFixed(1).replace(/\.0$/,'')+'M';
+            if(n>=1000)return(n/1000).toFixed(1).replace(/\.0$/,'')+'K';
+            return n.toLocaleString();
+        }
+
+        function getPagRange(cur, total) {
+            if(total<=7)return Array.from({length:total},(_,i)=>i+1);
+            const pages=[1];
+            if(cur>3)pages.push('...');
+            for(let i=Math.max(2,cur-1);i<=Math.min(total-1,cur+1);i++)pages.push(i);
+            if(cur<total-2)pages.push('...');
+            if(total>1)pages.push(total);
+            return pages;
+        }
+
+        function buildSection(label, userId, selected, onSelChange) {
+            const sec=document.createElement('div');sec.className='tp-section';
+            const hdr=document.createElement('div');hdr.className='tp-section-header';
+            const ttl=document.createElement('h3');ttl.className='tp-section-title';ttl.textContent=label;
+            const sts=document.createElement('div');sts.className='tp-section-stats tp-count';
+            hdr.append(ttl,sts);sec.appendChild(hdr);
+
+            const sr=document.createElement('div');sr.className='tp-search-row';
+            const sb=document.createElement('div');sb.className='tp-search-box';
+            const si=document.createElement('span');si.className='tp-search-icon';si.textContent='⌕';
+            const inp=document.createElement('input');inp.type='text';inp.className='tp-search-input';inp.placeholder='Search items...';
+            const xb=document.createElement('button');xb.className='tp-search-clear';xb.textContent='×';
+            sb.append(si,inp,xb);
+            const cat=document.createElement('select');cat.className='tp-select';
+            ASSET_TYPES.forEach(a=>{const o=document.createElement('option');o.value=a.value;o.textContent=a.label;cat.appendChild(o);});
+            const srt=document.createElement('select');srt.className='tp-select';
+            SORT_OPTIONS.forEach(a=>{const o=document.createElement('option');o.value=a.value;o.textContent=a.label;srt.appendChild(o);});
+            sr.append(sb,cat,srt);sec.appendChild(sr);
+
+            const grid=document.createElement('div');grid.className='tp-grid';sec.appendChild(grid);
+            const pag=document.createElement('div');pag.className='tp-pag';sec.appendChild(pag);
+
+            let all=[],page=1,curType='null',curSort='default',loading=false,err=null;
+
+            const filt=()=>{const q=inp.value.trim().toLowerCase();return sortItems(q?all.filter(i=>gn(i).toLowerCase().includes(q)):[...all],curSort);};
+            const totalPages=()=>Math.max(1,Math.ceil(filt().length/PER_PAGE));
+            const pgItems=()=>{const f=filt();return f.slice((page-1)*PER_PAGE,page*PER_PAGE);};
+            const isSel=item=>selected.some(s=>guaid(s)===guaid(item));
+
+            function toggle(item) {
+                const idx=selected.findIndex(s=>guaid(s)===guaid(item));
+                if(idx>=0)selected.splice(idx,1);
+                else{if(selected.length>=MAX_SELECT)return;selected.push(item);}
+                onSelChange();
+            }
+
+            async function load(type, force) {
+                if(!userId){showErr('No user ID');return;}
+                const ck=userId+'_'+type;
+                if(!force&&tpCache[ck]?.ok){all=tpCache[ck].items;err=null;page=1;render();return;}
+                loading=true;err=null;grid.innerHTML='';
+                const ld=document.createElement('div');ld.className='tp-loading';
+                ld.innerHTML='<div class="tp-spin"></div><span>Loading inventory...</span>';
+                grid.appendChild(ld);renderPag();updateStats();
+                try {
+                    const[items]=await Promise.all([
+                        fetchAll(userId,type,c=>{const s=ld.querySelector('span');if(s)s.textContent='Loading '+c+' items...';}),
+                        fetchKolimons()
+                    ]);
+                    all=items;err=null;
+                } catch(e){err=e.message;const p=tpCache[userId+'_'+type];if(p)all=p.items;}
+                loading=false;page=1;render();
+            }
+
+            function showErr(msg) {
+                grid.innerHTML='';
+                const el=document.createElement('div');el.className='tp-err';el.textContent=msg+' ';
+                const rb=document.createElement('button');rb.className='tp-retry';rb.textContent='Retry';
+                rb.onclick=()=>load(curType,true);
+                el.appendChild(rb);grid.appendChild(el);renderPag();updateStats();
+            }
+
+            function updateStats() {
+                const q=inp.value.trim(),f=filt();
+                if(loading)sts.innerHTML='<div class="tp-spin" style="width:10px;height:10px;border-width:1.5px"></div>';
+                else if(err)sts.innerHTML='<span style="color:var(--tp-red)">Error</span>';
+                else sts.textContent=q?f.length+'/'+all.length:String(all.length);
+            }
+
+            function renderPag() {
+                pag.innerHTML='';
+                const tp=totalPages();if(page>tp)page=tp;if(tp<=1)return;
+                const pb=document.createElement('button');pb.className='tp-pag-btn';pb.textContent='‹';pb.disabled=page<=1;
+                pb.onclick=()=>{if(page>1){page--;render();}};pag.appendChild(pb);
+                getPagRange(page,tp).forEach(p=>{
+                    if(p==='...'){const d=document.createElement('span');d.style.padding='0 2px';d.style.color='var(--tp-text-muted)';d.textContent='···';pag.appendChild(d);}
+                    else{const b=document.createElement('button');b.className='tp-pag-num';if(p===page)b.classList.add('active');b.textContent=p;b.onclick=()=>{page=p;render();};pag.appendChild(b);}
+                });
+                const nb=document.createElement('button');nb.className='tp-pag-btn';nb.textContent='›';nb.disabled=page>=tp;
+                nb.onclick=()=>{if(page<tp){page++;render();}};pag.appendChild(nb);
+            }
+
+            function render() {
+                grid.innerHTML='';
+                const items=pgItems();
+                if(!items.length&&!loading){
+                    if(err){showErr(err);return;}
+                    const d=document.createElement('div');d.className='tp-empty';
+                    const q=inp.value.trim();
+                    d.textContent=!all.length&&!q?'No collectibles found':q?'No matches for "'+q+'"':'Empty';
+                    grid.appendChild(d);renderPag();updateStats();return;
+                }
+                items.forEach((item,idx)=>{
+                    const rarity=getRarity(item);
+                    const w=document.createElement('div');w.className='tp-item';
+                    if(rarity)w.classList.add('tp-item-rarity-'+rarity);
+                    w.style.animation='tp-fadeUp 0.3s cubic-bezier(0.16,1,0.3,1) both';
+                    w.style.animationDelay=(idx*25)+'ms';
+                    if(isSel(item))w.classList.add('tp-sel');
+                    if(selected.length>=MAX_SELECT&&!isSel(item))w.classList.add('tp-maxed');
+
+                    const inner=document.createElement('div');inner.className='tp-item-inner';
+                    const imgWrap=document.createElement('div');imgWrap.className='tp-item-img-wrap';
+                    const img=document.createElement('img');img.src=gth(item);img.alt=gn(item);img.loading='lazy';
+                    img.onerror=function(){this.src='/img/empty.png';};
+                    const ck=document.createElement('span');ck.className='tp-ck';ck.textContent='✓';
+                    imgWrap.append(img,ck);
+
+                    const nd=document.createElement('p');nd.className='tp-item-n';
+                    const a=document.createElement('a');a.target='_blank';a.href='/catalog/'+gid(item)+'/item';
+                    a.textContent=gn(item);a.onclick=e=>e.stopPropagation();nd.appendChild(a);
+
+                    const meta=document.createElement('div');meta.className='tp-item-meta';
+                    const rap=getRap(item),val=getVal(item),demand=getDemand(item),serial=gserial(item);
+                    if(val>0){const t=document.createElement('span');t.className='tp-tag tp-tag-val';t.textContent='Value: '+fmtNum(val);meta.appendChild(t);}
+                    if(rap>0){const t=document.createElement('span');t.className='tp-tag tp-tag-rap';t.textContent='RAP: '+fmtNum(rap);meta.appendChild(t);}
+                    if(demand&&demand!=='unvalued'&&demand!=='none'){const t=document.createElement('span');t.className='tp-tag tp-demand-'+demand;t.textContent=demand.charAt(0).toUpperCase()+demand.slice(1);meta.appendChild(t);}
+                    if(serial!==null){const t=document.createElement('span');t.className='tp-tag tp-tag-serial';t.textContent='#'+serial;meta.appendChild(t);}
+
+                    inner.append(imgWrap,nd,meta);w.appendChild(inner);
+                    w.addEventListener('click',()=>{if(w.classList.contains('tp-maxed'))return;toggle(item);render();});
+                    grid.appendChild(w);
+                });
+                renderPag();updateStats();
+            }
+
+            let dt;
+            inp.addEventListener('input',()=>{clearTimeout(dt);dt=setTimeout(()=>{xb.classList.toggle('visible',inp.value.trim().length>0);page=1;render();},80);});
+            xb.addEventListener('click',()=>{inp.value='';xb.classList.remove('visible');page=1;render();inp.focus();});
+            cat.addEventListener('change',()=>{curType=cat.value;load(curType);});
+            srt.addEventListener('change',()=>{curSort=srt.value;page=1;render();});
+
+            sec._render=render;
+            load(curType);
+            return sec;
+        }
+
+        function buildAnalytics(mySel, partSel) {
+            const div=document.createElement('div');div.className='tp-analytics';
+            const title=document.createElement('div');title.className='tp-analytics-title';title.textContent='Trade Analysis';
+            div.appendChild(title);
+
+            const myRap=mySel.reduce((s,i)=>s+getRap(i),0),pRap=partSel.reduce((s,i)=>s+getRap(i),0);
+            const myVal=mySel.reduce((s,i)=>s+getVal(i),0),pVal=partSel.reduce((s,i)=>s+getVal(i),0);
+            const rDiff=pRap-myRap,vDiff=pVal-myVal;
+
+            function row(label, mine, theirs, diff) {
+                const r=document.createElement('div');r.className='tp-an-row';
+                const l=document.createElement('span');l.className='tp-an-label';l.textContent=label;
+                const v=document.createElement('span');v.className='tp-an-value '+(diff>0?'tp-an-pos':diff<0?'tp-an-neg':'tp-an-neu');
+                v.textContent=fmtNum(mine)+' → '+fmtNum(theirs)+'  '+(diff>0?'+':'')+fmtNum(diff);
+                r.append(l,v);return r;
+            }
+            div.append(row('RAP',myRap,pRap,rDiff),row('Value',myVal,pVal,vDiff));
+
+            const dn={'-1':'—','0':'Terrible','1':'Low','2':'Normal','3':'Decent','4':'High','5':'Amazing'};
+            if(mySel.length||partSel.length){
+                const am=mySel.length?mySel.reduce((s,i)=>s+(DEMAND_ORDER[getDemand(i)]||0),0)/mySel.length:0;
+                const ap=partSel.length?partSel.reduce((s,i)=>s+(DEMAND_ORDER[getDemand(i)]||0),0)/partSel.length:0;
+                const dr=document.createElement('div');dr.className='tp-an-row';
+                const dl=document.createElement('span');dl.className='tp-an-label';dl.textContent='Demand';
+                const dv=document.createElement('span');dv.className='tp-an-value '+(ap>am?'tp-an-pos':ap<am?'tp-an-neg':'tp-an-neu');
+                dv.textContent=(dn[String(Math.round(am))]||'—')+' → '+(dn[String(Math.round(ap))]||'—');
+                dr.append(dl,dv);div.appendChild(dr);
+            }
+
+            const hr=document.createElement('hr');hr.className='tp-an-divider';div.appendChild(hr);
+            const verdict=document.createElement('div');
+            if(!mySel.length&&!partSel.length){
+                verdict.className='tp-verdict tp-verdict-even';
+                verdict.innerHTML='<span class="tp-verdict-label tp-an-neu">Select items</span>';
+            } else if(vDiff>0){
+                const p=myVal>0?((vDiff/myVal)*100).toFixed(1):'∞';
+                verdict.className='tp-verdict tp-verdict-win';
+                verdict.innerHTML='<span class="tp-verdict-label tp-an-pos">Win</span><span class="tp-verdict-pct tp-verdict-pct-win">+'+p+'%</span>';
+            } else if(vDiff<0){
+                const p=myVal>0?((Math.abs(vDiff)/myVal)*100).toFixed(1):'∞';
+                verdict.className='tp-verdict tp-verdict-loss';
+                verdict.innerHTML='<span class="tp-verdict-label tp-an-neg">Loss</span><span class="tp-verdict-pct tp-verdict-pct-loss">-'+p+'%</span>';
+            } else {
+                verdict.className='tp-verdict tp-verdict-even';
+                verdict.innerHTML='<span class="tp-verdict-label tp-an-neu">Even</span><span class="tp-verdict-pct tp-verdict-pct-even">0%</span>';
+            }
+            div.appendChild(verdict);
+            return div;
+        }
+
+        function buildOfferCard(mySel, partSel, myId, partId, onChange) {
+            const card=document.createElement('div');card.className='tp-offer-card';
+
+            if(isCounter&&tradeSessionId){
+                const badge=document.createElement('div');badge.className='tp-counter-badge';
+                badge.textContent='Countering Trade #'+tradeSessionId;
+                card.appendChild(badge);
+            }
+
+            function half(title, items, robuxId) {
+                const div=document.createElement('div');div.className='tp-offer-half';
+                const lbl=document.createElement('div');lbl.className='tp-offer-label';
+                const lt=document.createElement('span');lt.textContent=title;
+                const tots=document.createElement('div');tots.className='tp-offer-totals';
+                tots.innerHTML='<span class="tp-t-rap">RAP: '+fmtNum(items.reduce((s,i)=>s+getRap(i),0))+'</span><span class="tp-t-val">Value: '+fmtNum(items.reduce((s,i)=>s+getVal(i),0))+'</span>';
+                lbl.append(lt,tots);div.appendChild(lbl);
+
+                const slots=document.createElement('div');slots.className='tp-offer-slots';
+                for(let i=0;i<MAX_SELECT;i++){
+                    const s=document.createElement('div');s.className='tp-slot';
+                    if(items[i]){
+                        s.classList.add('tp-filled');
+                        const img=document.createElement('img');img.src=gth(items[i]);img.alt=gn(items[i]);
+                        const rm=document.createElement('div');rm.className='tp-slot-remove';rm.textContent='×';
+                        const ci=i;
+                        s.addEventListener('click',()=>{const idx=items.indexOf(items[ci]);if(idx>=0)items.splice(idx,1);onChange();});
+                        s.append(img,rm);
+                        const serial=gserial(items[i]);
+                        if(serial!==null){const sb=document.createElement('span');sb.className='tp-slot-serial';sb.textContent='#'+serial;s.appendChild(sb);}
+                    } else {
+                        const img=document.createElement('img');img.src='/img/empty.png';img.alt='Empty';
+                        img.style.opacity='var(--tp-slot-empty)';img.style.cursor='default';
+                        s.appendChild(img);
+                    }
+                    slots.appendChild(s);
+                }
+                div.appendChild(slots);
+
+                const rr=document.createElement('div');rr.className='tp-robux-row';
+                const plus=document.createElement('span');plus.textContent='+';
+                const ri=document.createElement('input');ri.type='text';ri.className='tp-robux-inp';ri.placeholder='0';ri.id=robuxId;
+                const cur=document.createElement('span');cur.textContent='R$';
+                rr.append(plus,ri,cur);div.appendChild(rr);
+                return div;
+            }
+
+            card.appendChild(half('Your Offer',mySel,'tp-my-robux'));
+            const dv=document.createElement('hr');dv.className='tp-offer-div';card.appendChild(dv);
+            card.appendChild(half('Their Offer',partSel,'tp-part-robux'));
+            card.appendChild(buildAnalytics(mySel,partSel));
+
+            const fee=document.createElement('p');fee.className='tp-fee';fee.textContent='30% fee applies to Robux offers';
+            card.appendChild(fee);
+
+            function addRipple(btn) {
+                btn.addEventListener('mousedown',function(e){
+                    const rect=this.getBoundingClientRect();
+                    const rp=document.createElement('span');rp.className='tp-btn-ripple';
+                    rp.style.left=(e.clientX-rect.left)+'px';rp.style.top=(e.clientY-rect.top)+'px';
+                    this.appendChild(rp);setTimeout(()=>rp.remove(),500);
+                });
+            }
+
+            const btn=document.createElement('button');btn.className='tp-send-btn';
+            btn.textContent=isCounter?'Send New Trade':'Send Trade';
+            addRipple(btn);card.appendChild(btn);
+
+            let counterBtn=null;
+            if(isCounter&&tradeSessionId){
+                counterBtn=document.createElement('button');counterBtn.className='tp-counter-btn';
+                counterBtn.textContent='Counter Trade #'+tradeSessionId;
+                addRipple(counterBtn);card.appendChild(counterBtn);
+            }
+
+            const st=document.createElement('div');st.className='tp-send-st';card.appendChild(st);
+
+            function getRobuxValues(){
+                return {
+                    myRobux:document.getElementById('tp-my-robux')?.value?(parseInt(document.getElementById('tp-my-robux').value,10)||null):null,
+                    pRobux:document.getElementById('tp-part-robux')?.value?(parseInt(document.getElementById('tp-part-robux').value,10)||null):null
+                };
+            }
+
+            function buildBody(myUserId,partUserId){
+                const{myRobux,pRobux}=getRobuxValues();
+                return{offers:[
+                    {userId:parseInt(myUserId,10),userAssetIds:mySel.map(i=>guaid(i)),robux:(myRobux&&myRobux>0)?myRobux:null},
+                    {userId:parseInt(partUserId,10),userAssetIds:partSel.map(i=>guaid(i)),robux:(pRobux&&pRobux>0)?pRobux:null}
+                ]};
+            }
+
+            btn.addEventListener('click',async()=>{
+                if(!mySel.length&&!partSel.length){st.className='tp-send-st tp-send-er';st.textContent='Select at least one item';return;}
+                btn.disabled=true;if(counterBtn)counterBtn.disabled=true;
+                st.className='tp-send-st';st.textContent='Sending...';
+                try{await sendTrade(buildBody(myId,partId));st.className='tp-send-st tp-send-ok';st.textContent='Trade sent!';}
+                catch(e){st.className='tp-send-st tp-send-er';st.textContent=e.message;}
+                btn.disabled=false;if(counterBtn)counterBtn.disabled=false;
+            });
+
+            if(counterBtn){
+                counterBtn.addEventListener('click',async()=>{
+                    if(!mySel.length&&!partSel.length){st.className='tp-send-st tp-send-er';st.textContent='Select at least one item';return;}
+                    btn.disabled=true;counterBtn.disabled=true;
+                    st.className='tp-send-st';st.textContent='Sending counter...';
+                    try{await counterTrade(tradeSessionId,buildBody(myId,partId));st.className='tp-send-st tp-send-ok';st.textContent='Counter sent!';}
+                    catch(e){st.className='tp-send-st tp-send-er';st.textContent=e.message;}
+                    btn.disabled=false;counterBtn.disabled=false;
+                });
+            }
+
+            card._refresh=()=>{
+                const p=card.parentElement;if(!p)return card;
+                const nc=buildOfferCard(mySel,partSel,myId,partId,onChange);
+                p.replaceChild(nc,card);offerEl=nc;return nc;
+            };
+            return card;
+        }
+
+        function findSec(hr) {
+            const r={headerRow:hr,itemCol:null,pagCol:null};
+            let el=hr.nextElementSibling;
+            while(el){
+                if((el.classList.contains('divider-top')&&el.classList.contains('mt-4')&&el.classList.contains('mb-4'))||
+                   (el.matches('.row')&&el.querySelector('h3.font-size-14.fw-600'))||
+                   el.classList.contains('tp-section'))break;
+                if(!r.itemCol&&el.matches('.col-12.mt-4')&&el.querySelector('.itemRow-0-2-105'))r.itemCol=el;
+                if(!r.pagCol&&el.matches('.col-3.mx-auto.mt-4')&&el.querySelector('.button-0-2-117'))r.pagCol=el;
+                el=el.nextElementSibling;
+            }
+            return r;
+        }
+
+        function findAll() {
+            const secs=[],seen=new Set(),col8=document.querySelector('.col-8');
+            if(!col8)return secs;
+            for(const h3 of col8.querySelectorAll('h3.font-size-14.fw-600')){
+                const t=h3.textContent.trim();
+                if((t==="My Inventory"||t==="Partner's Inventory")&&!seen.has(t)){
+                    seen.add(t);const hr=h3.closest('.row');
+                    if(hr){const s=findSec(hr);secs.push({label:t,...s,parent:hr.parentElement,isPartner:t.includes('Partner')});}
+                }
+            }
+            return secs;
+        }
+
+        function hideOrig(s){s.headerRow.classList.add('tp-hidden');if(s.itemCol)s.itemCol.classList.add('tp-hidden');if(s.pagCol)s.pagCol.classList.add('tp-hidden');}
+        function cleanup(){document.querySelectorAll('.tp-section,.tp-divider').forEach(e=>e.remove());document.querySelectorAll('.tp-hidden').forEach(e=>e.classList.remove('tp-hidden'));}
+
+        async function inject() {
+            if(injecting||injected)return;
+            injecting=true;
+            csrfToken=(document.cookie.match(/rbxcsrf4=([^;]+)/)||[])[1]||null;
+            createToggle();
+            applyTheme();
+
+            let me;
+            try{me=await getAuth();}catch{injecting=false;setTimeout(inject,2000);return;}
+            const pid=getPartnerId();
+            const secs=findAll();
+            if(!secs.length){injecting=false;setTimeout(inject,500);return;}
+            cleanup();injected=true;
+
+            const mySel=[],partSel=[];
+            let mySecEl=null,partSecEl=null;
+            const origCol4=document.querySelector('.col-4');
+            const origCard=origCol4?.querySelector('.offerRequestCard-0-2-34');
+            let prefillMyRobux=0,prefillPartRobux=0;
+
+            if(isCounter&&tradeSessionId){
+                let prefillEl=null;
+                if(origCol4){
+                    if(origCard)origCard.classList.add('tp-hidden');
+                    prefillEl=document.createElement('div');
+                    prefillEl.className='tp-prefill-status tp-prefill-loading';
+                    prefillEl.innerHTML='<div class="tp-spin"></div> Loading trade #'+tradeSessionId+'...';
+                    origCol4.appendChild(prefillEl);
+                }
+                try{
+                    const[info]=await Promise.all([fetchTradeInfo(tradeSessionId),fetchKolimons()]);
+                    if(info&&Array.isArray(info.offers)){
+                        for(const offer of info.offers){
+                            const uid=String(offer.user?.id),isMe=uid===me.id,sel=isMe?mySel:partSel;
+                            if(Array.isArray(offer.userAssets))for(const ua of offer.userAssets){if(sel.length<MAX_SELECT)sel.push(mapTradeItem(ua));}
+                            if(isMe)prefillMyRobux=offer.robux||0;else prefillPartRobux=offer.robux||0;
+                        }
+                    }
+                    if(prefillEl){
+                        prefillEl.className='tp-prefill-status tp-prefill-ok';
+                        prefillEl.innerHTML='✓ Loaded '+(mySel.length+partSel.length)+' items from trade #'+tradeSessionId;
+                        setTimeout(()=>{try{prefillEl.style.transition='opacity .4s';prefillEl.style.opacity='0';setTimeout(()=>prefillEl.remove(),400);}catch{}},3000);
+                    }
+                }catch(e){
+                    if(prefillEl){
+                        prefillEl.className='tp-prefill-status tp-prefill-err';
+                        prefillEl.textContent='Could not load trade #'+tradeSessionId+': '+e.message;
+                        setTimeout(()=>{try{prefillEl.style.transition='opacity .4s';prefillEl.style.opacity='0';setTimeout(()=>prefillEl.remove(),400);}catch{}},5000);
+                    }
+                }
+            }
+
+            function refreshAll(){
+                if(mySecEl?._render)mySecEl._render();
+                if(partSecEl?._render)partSecEl._render();
+                if(offerEl&&origCol4){
+                    const nc=buildOfferCard(mySel,partSel,me.id,pid,refreshAll);
+                    origCol4.replaceChild(nc,offerEl);offerEl=nc;
+                }
+            }
+
+            if(origCard&&origCol4){
+                origCard.classList.add('tp-hidden');
+                offerEl=buildOfferCard(mySel,partSel,me.id,pid,refreshAll);
+                origCol4.appendChild(offerEl);
+                if(prefillMyRobux>0){const inp=document.getElementById('tp-my-robux');if(inp)inp.value=prefillMyRobux;}
+                if(prefillPartRobux>0){const inp=document.getElementById('tp-part-robux');if(inp)inp.value=prefillPartRobux;}
+            }
+
+            secs.forEach(s=>{
+                const uid=s.isPartner?pid:me.id,sel=s.isPartner?partSel:mySel;
+                hideOrig(s);
+                const divider=s.parent.querySelector('.mt-4.mb-4.divider-top');
+                const ui=buildSection(s.label,uid,sel,refreshAll);
+                if(s.isPartner){
+                    partSecEl=ui;
+                    if(divider){const d=document.createElement('hr');d.className='tp-divider';divider.classList.add('tp-hidden');divider.insertAdjacentElement('afterend',ui);ui.insertAdjacentElement('beforebegin',d);}
+                    else s.parent.appendChild(ui);
+                } else{mySecEl=ui;s.headerRow.insertAdjacentElement('afterend',ui);}
+            });
+            injecting=false;
+        }
+
+        if(document.readyState==='complete'||document.readyState==='interactive')setTimeout(inject,400);
+        else document.addEventListener('DOMContentLoaded',()=>setTimeout(inject,400));
+        window.addEventListener('load',()=>setTimeout(inject,800),{once:true});
     })();
 
 })();  // end main IIFE
