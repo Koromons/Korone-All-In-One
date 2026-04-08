@@ -13,7 +13,7 @@
 // @grant        GM_cookie
 // @connect      www.pekora.zip
 // @connect      pekora.zip
-// @connect      koromons.xyz
+// @connect      koromons.lol
 // @connect      files.catbox.moe
 // @connect      economy.roblox.com
 // @connect      assetdelivery.roblox.com
@@ -1011,13 +1011,13 @@
         let TM_IMG_RAP = ''; // base64 data URL for RAP icon
         let TM_IMG_ROBUX = ''; // base64 data URL for robux icon
         function fetchImgAsDataUrl(url,cb){GM_xmlhttpRequest({method:'GET',url:url,responseType:'blob',onload:function(r){const reader=new FileReader();reader.onload=function(){cb(reader.result);};reader.readAsDataURL(r.response);},onerror:function(){cb('');}});}
-        fetchImgAsDataUrl('https://koromons.xyz/images/logo.png',function(d){TM_IMG_KOL=d;});
+        fetchImgAsDataUrl('https://koromons.lol/images/logo.png',function(d){TM_IMG_KOL=d;});
         fetchImgAsDataUrl('https://files.catbox.moe/lb9oyq.webp',function(d){TM_IMG_RAP=d;});
-        fetchImgAsDataUrl('https://koromons.xyz/svg/robux.svg',function(d){TM_IMG_ROBUX=d;});
+        fetchImgAsDataUrl('https://koromons.lol/svg/robux.svg',function(d){TM_IMG_ROBUX=d;});
 
         function fetchKolimonValues() {
             return new Promise(function(resolve) {
-                GM_xmlhttpRequest({ method:'GET', url:'https://koromons.xyz/api/items', headers:{'Accept':'application/json'}, onload:function(r){ try{ const data=JSON.parse(r.responseText); const items=Array.isArray(data)?data:[]; items.forEach(function(entry){ if(entry&&entry.itemId){ KOLIMON_BY_ID[String(entry.itemId)]={assetId:String(entry.itemId),value:entry.Value||0,demand:(entry.Demand||'').toLowerCase()}; } }); kolimonReady=true; }catch(e){} resolve(); }, onerror:function(){resolve();} });
+                GM_xmlhttpRequest({ method:'GET', url:'https://koromons.lol/api/items', headers:{'Accept':'application/json'}, onload:function(r){ try{ const data=JSON.parse(r.responseText); const items=Array.isArray(data)?data:[]; items.forEach(function(entry){ if(entry&&entry.itemId){ KOLIMON_BY_ID[String(entry.itemId)]={assetId:String(entry.itemId),value:entry.Value||0,demand:(entry.Demand||'').toLowerCase()}; } }); kolimonReady=true; }catch(e){} resolve(); }, onerror:function(){resolve();} });
             });
         }
         fetchKolimonValues();
@@ -1078,7 +1078,7 @@
             .tm-slot-val-row{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;line-height:1.6;color:#fff}
             .tm-slot-val-row.rap{color:#3ab4f2}
             .tm-val-icon{width:14px;height:14px;flex-shrink:0;display:inline-block;background-size:contain;background-repeat:no-repeat;background-position:center;border-radius:0}
-            .tm-val-icon.blue{background-image:url('https://koromons.xyz/images/logo.png')}
+            .tm-val-icon.blue{background-image:url('https://koromons.lol/images/logo.png')}
             .tm-val-icon.green{background-image:url('https://files.catbox.moe/lb9oyq.webp')}
             .tm-section-total{display:flex;justify-content:space-between;align-items:flex-start;margin:6px 0 16px}
             .tm-section-total-label{font-size:12px;color:#bbb!important;font-weight:600;padding-top:2px}
@@ -1166,8 +1166,8 @@
                 const diffEl=document.createElement('div'); diffEl.className='tm-diff '+valDiffCls; diffEl.textContent=valDiffStr+' Value'; sidebar.appendChild(diffEl);
                 // "You're offering" values
                 const lbl1=document.createElement('div'); lbl1.style.cssText='font-size:10px;color:#888;margin-bottom:2px;width:100%'; lbl1.textContent="You're offering:"; sidebar.appendChild(lbl1);
-                function sideValRow(type,val){const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;width:100%;margin-bottom:3px;color:'+(type==='kol'?'#4a9eff':'#2ec27e');const ic=document.createElement('img');ic.style.cssText='width:13px;height:13px;flex-shrink:0;object-fit:contain';ic.src=type==='kol'?(TM_IMG_KOL||'https://koromons.xyz/images/logo.png'):(TM_IMG_RAP||'https://files.catbox.moe/lb9oyq.webp');ic.alt=type==='kol'?'V':'R';row.appendChild(ic);const sp=document.createElement('span');sp.style.cssText='color:'+(type==='kol'?'#4a9eff':'#2ec27e');sp.textContent=val.toLocaleString();row.appendChild(sp);return row;}
-                function sideRobuxRow(amount){const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;width:100%;margin-bottom:3px;color:#00e87e';const ic=document.createElement('img');ic.src=(TM_IMG_ROBUX||'https://koromons.xyz/svg/robux.svg');ic.style.cssText='width:13px;height:13px;flex-shrink:0;object-fit:contain';row.appendChild(ic);const sp=document.createElement('span');sp.style.cssText='color:#00e87e';sp.textContent=amount.toLocaleString();row.appendChild(sp);return row;}
+                function sideValRow(type,val){const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;width:100%;margin-bottom:3px;color:'+(type==='kol'?'#4a9eff':'#2ec27e');const ic=document.createElement('img');ic.style.cssText='width:13px;height:13px;flex-shrink:0;object-fit:contain';ic.src=type==='kol'?(TM_IMG_KOL||'https://koromons.lol/images/logo.png'):(TM_IMG_RAP||'https://files.catbox.moe/lb9oyq.webp');ic.alt=type==='kol'?'V':'R';row.appendChild(ic);const sp=document.createElement('span');sp.style.cssText='color:'+(type==='kol'?'#4a9eff':'#2ec27e');sp.textContent=val.toLocaleString();row.appendChild(sp);return row;}
+                function sideRobuxRow(amount){const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;width:100%;margin-bottom:3px;color:#00e87e';const ic=document.createElement('img');ic.src=(TM_IMG_ROBUX||'https://koromons.lol/svg/robux.svg');ic.style.cssText='width:13px;height:13px;flex-shrink:0;object-fit:contain';row.appendChild(ic);const sp=document.createElement('span');sp.style.cssText='color:#00e87e';sp.textContent=amount.toLocaleString();row.appendChild(sp);return row;}
                 sidebar.appendChild(sideValRow('kol',isInbound?myVal:myVal));
                 sidebar.appendChild(sideValRow('rap',isInbound?myRap:myRap));
                 if(isInbound?myRobux:myRobux)sidebar.appendChild(sideRobuxRow(isInbound?myRobux:myRobux));
@@ -1177,7 +1177,7 @@
                 if(isInbound?theirRobux:theirRobux)sidebar.appendChild(sideRobuxRow(isInbound?theirRobux:theirRobux));
 
                 // — Content —
-                function valIcon(type){const s=document.createElement('img');s.style.cssText='width:14px;height:14px;flex-shrink:0;display:inline-block;vertical-align:middle;object-fit:contain;border-radius:0';s.src=type==='kol'?(TM_IMG_KOL||'https://koromons.xyz/images/logo.png'):(TM_IMG_RAP||'https://files.catbox.moe/lb9oyq.webp');s.alt=type==='kol'?'V':'R';return s;}
+                function valIcon(type){const s=document.createElement('img');s.style.cssText='width:14px;height:14px;flex-shrink:0;display:inline-block;vertical-align:middle;object-fit:contain;border-radius:0';s.src=type==='kol'?(TM_IMG_KOL||'https://koromons.lol/images/logo.png'):(TM_IMG_RAP||'https://files.catbox.moe/lb9oyq.webp');s.alt=type==='kol'?'V':'R';return s;}
                 function buildSection(label,assets,kolTotal,rapTotal,robuxAmt){
                     const sec=document.createElement('div');
                     const lbl=document.createElement('div'); lbl.style.cssText='font-size:13px;font-weight:800;color:#fff;margin:0 0 10px;letter-spacing:0.01em'; lbl.textContent=label; sec.appendChild(lbl);
@@ -1212,7 +1212,7 @@
                     const tRap=document.createElement('div'); tRap.style.cssText='display:flex;align-items:center;gap:5px;font-size:13px;font-weight:800;color:#2ec27e'; tRap.appendChild(valIcon('rap')); const trS=document.createElement('span'); trS.style.color='#2ec27e'; trS.textContent=rapTotal.toLocaleString(); tRap.appendChild(trS);
                     totVals.appendChild(tKol); totVals.appendChild(tRap);
                     tot.appendChild(totLbl); tot.appendChild(totVals); sec.appendChild(tot);
-                    if(robuxAmt){const robuxRow=document.createElement('div');robuxRow.style.cssText='display:flex;justify-content:space-between;align-items:center;margin:-10px 0 16px;padding:0 0 0 0';const robuxLbl=document.createElement('span');robuxLbl.style.cssText='font-size:12px;color:#00e87e;font-weight:700';robuxLbl.textContent='Robux Offered:';const robuxRight=document.createElement('div');robuxRight.style.cssText='display:flex;align-items:center;gap:5px;font-size:13px;font-weight:800;color:#00e87e';const rIcon=document.createElement('img');rIcon.src=(TM_IMG_ROBUX||'https://koromons.xyz/svg/robux.svg');rIcon.style.cssText='width:14px;height:14px;object-fit:contain;flex-shrink:0';const rNum=document.createElement('span');rNum.style.color='#00e87e';rNum.textContent=robuxAmt.toLocaleString();robuxRight.appendChild(rIcon);robuxRight.appendChild(rNum);robuxRow.appendChild(robuxLbl);robuxRow.appendChild(robuxRight);sec.appendChild(robuxRow);}
+                    if(robuxAmt){const robuxRow=document.createElement('div');robuxRow.style.cssText='display:flex;justify-content:space-between;align-items:center;margin:-10px 0 16px;padding:0 0 0 0';const robuxLbl=document.createElement('span');robuxLbl.style.cssText='font-size:12px;color:#00e87e;font-weight:700';robuxLbl.textContent='Robux Offered:';const robuxRight=document.createElement('div');robuxRight.style.cssText='display:flex;align-items:center;gap:5px;font-size:13px;font-weight:800;color:#00e87e';const rIcon=document.createElement('img');rIcon.src=(TM_IMG_ROBUX||'https://koromons.lol/svg/robux.svg');rIcon.style.cssText='width:14px;height:14px;object-fit:contain;flex-shrink:0';const rNum=document.createElement('span');rNum.style.color='#00e87e';rNum.textContent=robuxAmt.toLocaleString();robuxRight.appendChild(rIcon);robuxRight.appendChild(rNum);robuxRow.appendChild(robuxLbl);robuxRow.appendChild(robuxRight);sec.appendChild(robuxRow);}
                     return sec;
                 }
                 const giveAssets=myAssets, giveKol=myVal, giveRap=myRap, giveRobux=myRobux;
@@ -1701,7 +1701,7 @@
 
         function loadcached(){try{var cached=localStorage.getItem(valueskey);if(cached)valuesdata=JSON.parse(cached);}catch(e){}}
         function savevalues(data,version){localStorage.setItem(valueskey,JSON.stringify(data));localStorage.setItem(valuesversionkey,version);valuesdata=data;}
-        function fetchvalues(background){GM_xmlhttpRequest({method:'GET',url:'https://koromons.xyz/api/items',onload:function(res){try{var data=JSON.parse(res.responseText);var items=Array.isArray(data)?data:[];var byId={};items.forEach(function(entry){if(entry&&entry.itemId){byId[String(entry.itemId)]={value:entry.Value||0,demand:(entry.Demand||'').toLowerCase(),trend:(entry.Trend||'').toLowerCase()};}});savevalues(byId,'koromons');document.querySelectorAll(cardselector).forEach(function(card){delete card.dataset.rolifyDone;});requestAnimationFrame(function(){apply();});}catch(e){console.error(e);}}});}
+        function fetchvalues(background){GM_xmlhttpRequest({method:'GET',url:'https://koromons.lol/api/items',onload:function(res){try{var data=JSON.parse(res.responseText);var items=Array.isArray(data)?data:[];var byId={};items.forEach(function(entry){if(entry&&entry.itemId){byId[String(entry.itemId)]={value:entry.Value||0,demand:(entry.Demand||'').toLowerCase(),trend:(entry.Trend||'').toLowerCase()};}});savevalues(byId,'koromons');document.querySelectorAll(cardselector).forEach(function(card){delete card.dataset.rolifyDone;});requestAnimationFrame(function(){apply();});}catch(e){console.error(e);}}});}
         function getvalue(name){if(!valuesdata||!name)return 0;var key=name.toLowerCase();if(valuesdata[key]&&valuesdata[key].value!=null)return valuesdata[key].value;return 0;}function getvaluebyid(id){if(!valuesdata||!id)return 0;var entry=valuesdata[String(id)];return(entry&&entry.value)?entry.value:0;}function getdemandbyid(id){if(!valuesdata||!id)return null;var entry=valuesdata[String(id)];return(entry&&entry.demand&&entry.demand!=='none')?entry.demand:null;}
 
         function addcss(){
@@ -2853,7 +2853,7 @@
     (function () {
         if (!extEnabled(14)) return;
 
-        const API_URL_14 = "https://www.koromons.xyz/api/items";
+        const API_URL_14 = "https://www.koromons.lol/api/items";
         let ITEMS_14 = [];
         let FETCHED_14 = false;
 
@@ -3008,7 +3008,7 @@
                 const link = document.createElement("p");
                 link.id = "pk_koromon_link";
                 link.style.margin = "5px 0";
-                link.innerHTML = `<a href="https://www.koromons.xyz/item/${itemId}" target="_blank" style="color: inherit; font-weight: 600;">View on Koromons</a>`;
+                link.innerHTML = `<a href="https://www.koromons.lol/item/${itemId}" target="_blank" style="color: inherit; font-weight: 600;">View on Koromons</a>`;
                 creatorLine.insertAdjacentElement("afterend", link);
             }
         }
@@ -3018,7 +3018,7 @@
             return new Promise((resolve) => {
                 GM_xmlhttpRequest({
                     method: "GET",
-                    url: `https://www.koromons.xyz/api/users/${userId}`,
+                    url: `https://www.koromons.lol/api/users/${userId}`,
                     onload(res) {
                         try { resolve(JSON.parse(res.responseText)); } catch (e) { resolve(null); }
                     },
@@ -3070,7 +3070,7 @@
             const textContainerClass = getFirstClassPrefix14("statTextContainer", "statTextContainer-0-2-104");
             const textClass = getFirstClassPrefix14("statText", "statText-0-2-105");
 
-            const playerUrl = `https://www.koromons.xyz/player/${userId}`;
+            const playerUrl = `https://www.koromons.lol/player/${userId}`;
 
             const existing = statsList.querySelector("#pk_profile_value");
             if (existing) {
@@ -3158,7 +3158,7 @@
         if (!extEnabled(15)) return;
         if (!location.href.includes("/internal/collectibles?userId=")) return;
 
-        const API_URL_15 = "https://www.koromons.xyz/api/items";
+        const API_URL_15 = "https://www.koromons.lol/api/items";
         let ITEMS_15 = [];
         let FETCHED_15 = false;
 
@@ -3836,7 +3836,7 @@ kbH +
     const EP_DETAIL = BASE + '/apisite/trades/v1/trades';
     const EP_HEADSHOT = BASE + '/apisite/thumbnails/v1/users/avatar-headshot';
     const EP_ASSET_THUMB = BASE + '/apisite/thumbnails/v1/assets';
-    const EP_KOROMONS = 'https://koromons.xyz/api/items';
+    const EP_KOROMONS = 'https://koromons.lol/api/items';
     const EP_INVENTORY = BASE + '/apisite/inventory/v1/users/{uid}/assets/collectibles';
     const EP_TRADE_SEND = BASE + '/apisite/trades/v1/trades/send';
     const STORE_KEY = 'pekora_seen_trade_ids';
@@ -7476,7 +7476,7 @@ kbH +
         const TRADE_ENDPOINT = '/apisite/trades/v1/trades/send';
         const COUNTER_ENDPOINT = '/apisite/trades/v1/trades/{tradeId}/counter';
         const TRADE_INFO_ENDPOINT = '/apisite/trades/v1/trades/{tradeId}';
-        const KOLIMONS_API = 'https://www.koromons.xyz/api/items';
+        const KOLIMONS_API = 'https://www.koromons.lol/api/items';
         const LIMIT = 100;
         const PER_PAGE = 10;
         const MAX_SELECT = 4;
